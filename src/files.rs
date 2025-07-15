@@ -55,8 +55,6 @@ pub fn base_path() -> PathBuf
 async fn load_data_from_cli(cli: &Cli) -> Data
 {
     let dashboard_path = base_path();
-    let mut dashboard_path: PathBuf = std::env::current_dir().unwrap();
-    dashboard_path.push(".dashboard");
 
     let futures = generate_load_futures!(
         cli,
