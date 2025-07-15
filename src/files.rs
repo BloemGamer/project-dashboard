@@ -6,7 +6,7 @@ use crate::{
     Data,
     DataEnum,
     Cli,
-    Tasks,
+    tasks,
 };
 
 
@@ -53,7 +53,7 @@ async fn load_data_from_cli(cli: &Cli) -> Data
     let futures = generate_load_futures!(
         cli,
         dashboard_path,
-        tasks => Tasks => Tasks,
+        tasks => tasks::Tasks => Tasks,
     );
 
     let results = futures::future::join_all(futures).await;

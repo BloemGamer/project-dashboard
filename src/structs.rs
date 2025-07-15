@@ -1,6 +1,9 @@
 use clap::Parser;
 use serde;
 
+use crate::{commands::{
+    tasks,
+}};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = "A tool for checking and keeping track of your project")]
@@ -16,7 +19,7 @@ generate_data_enum!
     #[derive(Debug, serde::Deserialize, Default)]
     pub struct Data
     {
-        pub tasks: Option<Tasks> => Tasks,
+        pub tasks: Option<tasks::Tasks> => Tasks,
         //overview: Option<Overview>,
     }
 }
@@ -30,22 +33,3 @@ pub enum Priority
 }
 
 
-#[derive(Debug, serde::Deserialize)]
-pub struct Tasks
-{
-    pub tasks: Vec<Task>,   
-}
-
-fn priority_default() -> Priority { Priority::Low }
-fn explanation_default() -> String { String::new() }
-
-#[derive(Debug, serde::Deserialize)]
-pub struct Task
-{
-    pub task: String,
-
-    #[serde(default = "priority_default")]
-    pub priority: Priority,
-    #[serde(default = "explanation_default")]
-    pub explanation: String,
-}
