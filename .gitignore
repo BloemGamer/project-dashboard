@@ -1,1 +1,6 @@
-/target
+target
+debug
+*.sh
+**/*.rs.bk
+**/mutants.out*/
+.dashboard/
