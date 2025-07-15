@@ -9,8 +9,8 @@ use crate::{commands::{
 #[command(version, about, long_about = "A tool for checking and keeping track of your project")]
 pub struct Cli
 {
-    #[arg(short, long, default_value_t = false)]
-    pub tasks: bool,
+    #[arg(short, long, num_args(0..=1), default_missing_value = "none")]
+    pub tasks: Option<tasks::TasksCli>,
 
 }
 
@@ -31,5 +31,4 @@ pub enum Priority
     Medium,
     Low,
 }
-
 

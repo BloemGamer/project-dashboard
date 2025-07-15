@@ -29,7 +29,7 @@ fn main()
 
     let data: Data = files::read_data(&cli);
 
-    if cli.tasks
+    if cli.tasks.is_some()
     {
         for task in data.tasks.unwrap().tasks
         {
