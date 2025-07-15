@@ -31,10 +31,7 @@ fn main()
 
     if cli.tasks.is_some()
     {
-        for task in data.tasks.unwrap().tasks
-        {
-            println!("{:?}", task);
-        }
+        tasks::run(&data.tasks.unwrap(), &cli.tasks.unwrap());
     }
 }
 

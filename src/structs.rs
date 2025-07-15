@@ -1,5 +1,6 @@
-use clap::Parser;
+use clap::{self, Parser};
 use serde;
+use tabled;
 
 use crate::{commands::{
     tasks,
@@ -24,7 +25,7 @@ generate_data_enum!
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, tabled::Tabled, Clone, clap::ValueEnum)]
 pub enum Priority
 {
     High,

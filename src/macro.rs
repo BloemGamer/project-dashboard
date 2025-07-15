@@ -45,16 +45,13 @@ macro_rules! for_each_true
 
 
 #[macro_export]
-macro_rules! generate_load_futures
-{
-    ($cli:expr, $base_path:expr, $( $field:ident => $type:ty => $variant:ident ),* $(,)?) =>
-    {{
+macro_rules! generate_load_futures {
+    ($cli:expr, $base_path:expr, $( $field:ident => $type:ty => $variant:ident ),* $(,)?) => {{
         let mut futures = Vec::new();
 
         $(
             if $cli.$field.is_some() {
-                let mut path = $base_path.clone();
-                path.push(format!("{}.toml", stringify!($field)));
+                let path = generate_path!($base_path.clone(), $field);
 
                 let fut = async move {
                     match tokio::fs::read_to_string(&path).await {
@@ -71,5 +68,15 @@ macro_rules! generate_load_futures
         )*
 
         futures
+    }};
+}
+
+
+#[macro_export]
+macro_rules! generate_path {
+    ($base_path:expr, $field:ident) => {{
+        let mut path = $base_path;
+        path.push(format!("{}.toml", stringify!($field)));
+        path
     }};
 }

@@ -44,11 +44,17 @@ pub fn read_data(cli: &Cli) -> Data
         .block_on(load_data_from_cli(cli))
 }
 
+pub fn base_path() -> PathBuf
+{
+    let mut dashboard_path: PathBuf = std::env::current_dir().unwrap();
+    dashboard_path.push(".dashboard");
+    dashboard_path
+}
+
 
 async fn load_data_from_cli(cli: &Cli) -> Data
 {
-    let mut dashboard_path = std::env::current_dir().unwrap();
-    dashboard_path.push(".dashboard");
+    let dashboard_path = base_path();
 
     let futures = generate_load_futures!(
         cli,
