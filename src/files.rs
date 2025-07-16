@@ -76,3 +76,32 @@ async fn load_data_from_cli(cli: &Cli) -> Data
 
     data
 }
+
+// maybe make this one async in the future, but now I don't want to do that, and think I don't have to
+#[macro_export]
+macro_rules! generate_refresh_field {
+    ($cli:expr, $data:expr, $field_name:expr, $base_path:expr,
+        $( $field:ident => $type:ty ),* $(,)?
+    ) => {{
+        let mut result: Result<(), String> = Err(format!("Unsupported or unset field: {}", $field_name));
+        
+        $(
+            if $field_name == stringify!($field) && $cli.$field.is_some() {
+                let mut path = $base_path.clone();
+                path.push(format!("{}.toml", stringify!($field)));
+                result = match std::fs::read_to_string(&path) {
+                    Ok(content) => match toml::from_str::<$type>(&content) {
+                        Ok(parsed) => {
+                            $data.$field = Some(parsed);
+                            Ok(())
+                        },
+                        Err(e) => Err(format!("TOML error in {}: {}", path.display(), e)),
+                    },
+                    Err(e) => Err(format!("File read error in {}: {}", path.display(), e)),
+                };
+            }
+        )*
+
+        result
+    }};
+}

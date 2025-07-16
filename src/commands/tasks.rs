@@ -2,12 +2,12 @@ use std::{fmt, io::{self, Write}, str::FromStr};
 use bitflags::bitflags;
 use tabled;
 use clap;
-use toml_edit::{DocumentMut};
+use toml;
 
 use crate::{files, structs::Priority};
 
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct Tasks
 {
     pub tasks: Vec<Task>,   
@@ -16,7 +16,7 @@ pub struct Tasks
 fn priority_default() -> Priority { Priority::Low }
 fn explanation_default() -> String { String::new() }
 
-#[derive(Debug, serde::Deserialize, tabled::Tabled, clap::Parser)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, clap::Parser, Clone)]
 pub struct Task
 {
     #[tabled{rename = "Task"}]
@@ -25,12 +25,13 @@ pub struct Task
     #[serde(default = "priority_default")]
     #[tabled{rename = "Priority"}]
     pub priority: Priority,
+
     #[serde(default = "explanation_default")]
     #[tabled{rename = "Explanation"}]
     pub explanation: String,
 }
 
-pub fn run(tasks: &Tasks, tasks_cli: &TasksCli)
+pub fn run(tasks: &mut Tasks, tasks_cli: &TasksCli)
 {
     if tasks_cli.intersects(TasksCli::HIGH | TasksCli::MEDIUM | TasksCli::LOW | TasksCli::NONE)
     {
@@ -38,13 +39,24 @@ pub fn run(tasks: &Tasks, tasks_cli: &TasksCli)
     }
     if tasks_cli.intersects(TasksCli::ADD)
     {
-        add(&add_input());
+        add_input(tasks);
+    }
+    if tasks_cli.intersects(TasksCli::REMOVE)
+    {
+        remove(tasks);
+    }
+    if tasks_cli.intersects(TasksCli::REMOVE | TasksCli::ADD)
+    {
+        write_tasks(&tasks);
     }
 }
 
-impl fmt::Display for Priority {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let s = match self {
+impl fmt::Display for Priority
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
+    {
+        let s = match self
+        {
             Priority::Low => "Low",
             Priority::Medium => "Medium",
             Priority::High => "High",
@@ -164,34 +176,19 @@ fn print_task(tasks: &Vec<&Task>)
     println!("{}", table);
 }
 
-fn add(tasks_vec: &Vec<Task>)
+fn write_tasks(tasks: &Tasks)
 {
     let path = generate_path!(files::base_path(), tasks);
 
-    let toml_str: String = std::fs::read_to_string(&path).unwrap();
-    let mut doc: DocumentMut = toml_str.parse().unwrap();
+    let toml_str = toml::to_string_pretty(&tasks)
+        .expect("Failed to serialize tasks");
 
-    let tasks = doc["tasks"].as_array_of_tables_mut()
-        .expect("`tasks` should be an array of tables");
-
-
-    for task in tasks_vec
-    {
-        let mut new_task = toml_edit::Table::new();
-        new_task["task"] = toml_edit::value(task.task.clone());
-        new_task["priority"] = toml_edit::value(task.priority.to_string());
-        new_task["explanation"] = toml_edit::value(task.explanation.clone());
-        tasks.push(new_task);
-    }
-
-
-    // Save back to file
-    std::fs::write(&path, doc.to_string()).unwrap();
-
+    std::fs::write(&path, toml_str).expect("Failed to write TOML file");
 }
 
 #[derive(clap::Parser, Debug)]
-pub struct InputTaskArgs {
+pub struct InputTaskArgs
+{
     #[arg(short = 't', long)]
     pub task: String,
 
@@ -202,9 +199,12 @@ pub struct InputTaskArgs {
     pub explanation: String,
 }
 
-impl From<InputTaskArgs> for Task {
-    fn from(args: InputTaskArgs) -> Self {
-        Task {
+impl From<InputTaskArgs> for Task
+{
+    fn from(args: InputTaskArgs) -> Self
+    {
+        Task
+        {
             task: args.task,
             priority: args.priority,
             explanation: args.explanation,
@@ -212,29 +212,31 @@ impl From<InputTaskArgs> for Task {
     }
 }
 
-fn add_input() -> Vec<Task>
+fn add_input(tasks_file: &mut Tasks)
 {
-    let mut output_tasks: Vec<Task> = Vec::new();
-
     use clap::Parser;
     let stdin = io::stdin();
-    loop {
+    loop
+    {
         println!("{}", "Enter new task");
 
         // Read one line of input
-        let mut input = String::new();
-        if stdin.read_line(&mut input).is_err() {
+        let mut input: String = String::new();
+        if stdin.read_line(&mut input).is_err()
+        {
             eprintln!("Failed to read input.");
             continue;
         }
         let input = input.trim();
-        if input.is_empty() {
+        if input.is_empty()
+        {
             eprintln!("Input was empty. Try again.");
             continue;
         }
 
         // Parse args
-        let parsed_args = match shell_words::split(input) {
+        let parsed_args = match shell_words::split(input)
+        {
             Ok(args) => args,
             Err(e) => {
                 eprintln!("Parsing error: {}", e);
@@ -245,13 +247,16 @@ fn add_input() -> Vec<Task>
         let args = std::iter::once("stdin-app")
             .chain(parsed_args.iter().map(String::as_str));
 
-        match InputTaskArgs::try_parse_from(args) {
-            Ok(cli_args) => {
+        match InputTaskArgs::try_parse_from(args)
+        {
+            Ok(cli_args) =>
+            {
                 let task: Task = cli_args.into();
-                output_tasks.push(task);
+                tasks_file.tasks.push(task);
                 println!("Task added!");
             }
-            Err(e) => {
+            Err(e) =>
+            {
                 eprintln!("Failed to parse task input: {}", e);
                 continue;
             }
@@ -262,16 +267,97 @@ fn add_input() -> Vec<Task>
         io::stdout().flush().unwrap(); // Ensure prompt is shown immediately
 
         let mut response = String::new();
-        if stdin.read_line(&mut response).is_err() {
+        if stdin.read_line(&mut response).is_err()
+        {
             eprintln!("Error reading response.");
             break;
         }
 
         let response = response.trim().to_lowercase();
-        if response == "n" || response == "no" {
+        if response == "n" || response == "no"
+        {
             println!("Finished adding tasks.");
             break;
         }
     }
-    return output_tasks
+    //return output_tasks
+}
+
+fn remove(tasks: &mut Tasks)
+{
+    let stdin = io::stdin();
+
+    loop
+    {
+        if tasks.tasks.is_empty()
+        {
+            println!("No tasks left to remove.");
+            break;
+        }
+
+        show(&tasks, &TasksCli::NONE);
+
+        // Ask for task name
+        println!("Enter the exact name of the task you want to remove:");
+        print!("> ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        if stdin.read_line(&mut input).is_err() {
+            eprintln!("Failed to read input.");
+            continue;
+        }
+        let task_name = input.trim();
+
+        // Find task by name
+        let position = tasks.tasks.iter().position(|t| t.task == task_name);
+        match position
+        {
+            Some(index) =>
+            {
+                // Confirm deletion
+                println!("Are you sure you want to remove \"{}\"? (Y/n):", task_name);
+                print!("> ");
+                io::stdout().flush().unwrap();
+
+                let mut confirm = String::new();
+                if stdin.read_line(&mut confirm).is_err()
+                {
+                    eprintln!("Failed to read confirmation.");
+                    continue;
+                }
+
+                if confirm.trim().to_lowercase().starts_with('n')
+                {
+                    println!("Task not removed.");
+                } else {
+                    println!("Task \"{}\" removed.", task_name);
+                    tasks.tasks.remove(index);
+                }
+            }
+            None =>
+            {
+                println!("No task found with name \"{}\".", task_name);
+            }
+        }
+
+        // Ask if they want to remove another
+        println!("Remove another task? (Y/n):");
+        print!("> ");
+        io::stdout().flush().unwrap();
+
+        let mut again = String::new();
+        if stdin.read_line(&mut again).is_err()
+        {
+            break;
+        }
+
+        let again = again.trim().to_lowercase();
+        if again == "n" || again == "no"
+        {
+            println!("Finished removing tasks.");
+            break;
+        }
+    }
+
 }

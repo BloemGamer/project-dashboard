@@ -25,7 +25,7 @@ generate_data_enum!
     }
 }
 
-#[derive(Debug, serde::Deserialize, tabled::Tabled, Clone, clap::ValueEnum)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, Clone, clap::ValueEnum)]
 pub enum Priority
 {
     High,
