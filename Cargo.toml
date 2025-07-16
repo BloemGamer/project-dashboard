@@ -12,4 +12,5 @@ futures = "0.3.31"
 bitflags = "2.9.1"
 tabled = "0.20.0"
 toml_edit = "0.23.1"
+shell-words = "1.1.0"
 

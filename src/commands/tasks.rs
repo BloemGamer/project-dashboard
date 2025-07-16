@@ -1,8 +1,8 @@
-use std::{str::FromStr, fmt};
+use std::{fmt, io::{self, Write}, str::FromStr};
 use bitflags::bitflags;
 use tabled;
 use clap;
-use toml_edit::{Document, DocumentMut};
+use toml_edit::{DocumentMut};
 
 use crate::{files, structs::Priority};
 
@@ -32,10 +32,13 @@ pub struct Task
 
 pub fn run(tasks: &Tasks, tasks_cli: &TasksCli)
 {
-    show(tasks, tasks_cli);
+    if tasks_cli.intersects(TasksCli::HIGH | TasksCli::MEDIUM | TasksCli::LOW | TasksCli::NONE)
+    {
+        show(tasks, tasks_cli);
+    }
     if tasks_cli.intersects(TasksCli::ADD)
     {
-        add(tasks, tasks_cli)
+        add(&add_input());
     }
 }
 
@@ -141,7 +144,7 @@ fn show(tasks: &Tasks, tasks_cli: &TasksCli)
     all_sorted.extend(high);
     all_sorted.extend(medium);
     all_sorted.extend(low);
-    if !all_sorted.is_empty()
+    //if !all_sorted.is_empty()
     {
         print_task(&all_sorted);
     }
@@ -161,7 +164,7 @@ fn print_task(tasks: &Vec<&Task>)
     println!("{}", table);
 }
 
-fn add(tasks: &Tasks, tasks_cli: &TasksCli)
+fn add(tasks_vec: &Vec<Task>)
 {
     let path = generate_path!(files::base_path(), tasks);
 
@@ -171,13 +174,104 @@ fn add(tasks: &Tasks, tasks_cli: &TasksCli)
     let tasks = doc["tasks"].as_array_of_tables_mut()
         .expect("`tasks` should be an array of tables");
 
-    let mut new_task = toml_edit::Table::new();
-    new_task["task"] = toml_edit::value("test8");
-    new_task["priority"] = toml_edit::value("Medium");
 
-    tasks.push(new_task);
+    for task in tasks_vec
+    {
+        let mut new_task = toml_edit::Table::new();
+        new_task["task"] = toml_edit::value(task.task.clone());
+        new_task["priority"] = toml_edit::value(task.priority.to_string());
+        new_task["explanation"] = toml_edit::value(task.explanation.clone());
+        tasks.push(new_task);
+    }
+
 
     // Save back to file
     std::fs::write(&path, doc.to_string()).unwrap();
 
+}
+
+#[derive(clap::Parser, Debug)]
+pub struct InputTaskArgs {
+    #[arg(short = 't', long)]
+    pub task: String,
+
+    #[arg(short = 'p', long, default_value = "Medium")]
+    pub priority: Priority,
+
+    #[arg(short = 'e', long, default_value = "")]
+    pub explanation: String,
+}
+
+impl From<InputTaskArgs> for Task {
+    fn from(args: InputTaskArgs) -> Self {
+        Task {
+            task: args.task,
+            priority: args.priority,
+            explanation: args.explanation,
+        }
+    }
+}
+
+fn add_input() -> Vec<Task>
+{
+    let mut output_tasks: Vec<Task> = Vec::new();
+
+    use clap::Parser;
+    let stdin = io::stdin();
+    loop {
+        println!("{}", "Enter new task");
+
+        // Read one line of input
+        let mut input = String::new();
+        if stdin.read_line(&mut input).is_err() {
+            eprintln!("Failed to read input.");
+            continue;
+        }
+        let input = input.trim();
+        if input.is_empty() {
+            eprintln!("Input was empty. Try again.");
+            continue;
+        }
+
+        // Parse args
+        let parsed_args = match shell_words::split(input) {
+            Ok(args) => args,
+            Err(e) => {
+                eprintln!("Parsing error: {}", e);
+                continue;
+            }
+        };
+
+        let args = std::iter::once("stdin-app")
+            .chain(parsed_args.iter().map(String::as_str));
+
+        match InputTaskArgs::try_parse_from(args) {
+            Ok(cli_args) => {
+                let task: Task = cli_args.into();
+                output_tasks.push(task);
+                println!("Task added!");
+            }
+            Err(e) => {
+                eprintln!("Failed to parse task input: {}", e);
+                continue;
+            }
+        }
+
+        // Ask if they want to add another
+        print!("Do you want to add another task? (Y/n): ");
+        io::stdout().flush().unwrap(); // Ensure prompt is shown immediately
+
+        let mut response = String::new();
+        if stdin.read_line(&mut response).is_err() {
+            eprintln!("Error reading response.");
+            break;
+        }
+
+        let response = response.trim().to_lowercase();
+        if response == "n" || response == "no" {
+            println!("Finished adding tasks.");
+            break;
+        }
+    }
+    return output_tasks
 }

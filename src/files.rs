@@ -65,8 +65,10 @@ async fn load_data_from_cli(cli: &Cli) -> Data
     let results = futures::future::join_all(futures).await;
 
     let mut data = Data::default();
-    for result in results {
-        match result {
+    for result in results
+    {
+        match result
+        {
             Ok(DataEnum::Tasks(t)) => data.tasks = Some(t),
             Err(e) => eprintln!("⚠️ {}", e),
         }
