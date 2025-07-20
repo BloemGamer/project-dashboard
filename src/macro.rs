@@ -80,3 +80,22 @@ macro_rules! generate_path {
         path
     }};
 }
+
+#[macro_export]
+macro_rules! get_files
+{
+    ($cli:expr, $base_path:expr, $data:expr, $( $field:ident => $type:ty => $variant:ident ),* $(,)?) =>
+    {{
+        $(
+            if $cli.$field.is_some()
+            {
+                let path = generate_path!($base_path.clone(), $field);
+                
+                use fs;
+                let toml_file: String = fs::read_to_string(path).expect("Could not read file");
+                $data.$field = toml::from_str(&toml_file).unwrap();
+            };
+        )*
+
+    }};
+}

@@ -33,3 +33,11 @@ pub enum Priority
     Low,
 }
 
+impl Data 
+{
+    pub fn new() -> Self 
+    {
+        Self { tasks: None }
+    }
+}
+

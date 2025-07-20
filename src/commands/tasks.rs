@@ -219,6 +219,8 @@ fn add_input(tasks_file: &mut Tasks)
     loop
     {
         println!("{}", "Enter new task");
+        print!("> ");
+        io::stdout().flush().unwrap();
 
         // Read one line of input
         let mut input: String = String::new();
@@ -263,8 +265,9 @@ fn add_input(tasks_file: &mut Tasks)
         }
 
         // Ask if they want to add another
-        print!("Do you want to add another task? (Y/n): ");
-        io::stdout().flush().unwrap(); // Ensure prompt is shown immediately
+        println!("Do you want to add another task? (Y/n): ");
+        print!("> ");
+        io::stdout().flush().unwrap();
 
         let mut response = String::new();
         if stdin.read_line(&mut response).is_err()

@@ -4,6 +4,7 @@ use clap::Parser;
 
 #[macro_use]
 mod r#macro;
+#[macro_use]
 mod files;
 mod structs;
 mod commands;
