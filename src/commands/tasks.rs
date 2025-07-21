@@ -51,6 +51,7 @@ pub fn run(tasks: &mut Tasks, tasks_cli: &TasksCli)
     }
 }
 
+// For printing Priority
 impl fmt::Display for Priority
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
@@ -124,6 +125,7 @@ fn show(tasks: &Tasks, tasks_cli: &TasksCli)
     let mut medium: Vec<&Task> = Vec::new();
     let mut low: Vec<&Task> = Vec::new();
 
+    // For only showing the asked priority
     for task in &tasks.tasks
     {
         match task.priority
@@ -156,10 +158,7 @@ fn show(tasks: &Tasks, tasks_cli: &TasksCli)
     all_sorted.extend(high);
     all_sorted.extend(medium);
     all_sorted.extend(low);
-    //if !all_sorted.is_empty()
-    {
-        print_task(&all_sorted);
-    }
+    print_task(&all_sorted);
 }
 
 fn print_task(tasks: &Vec<&Task>)
@@ -168,6 +167,8 @@ fn print_task(tasks: &Vec<&Task>)
     table.with(tabled::settings::Style::rounded());
 
     use tabled::settings::{Modify, object::Cell};
+
+    // Adding colors for the prority
     for (i, task) in tasks.iter().enumerate()
     {
         table.with(Modify::new(Cell::new(i + 1, 1)).with(task.priority.color()));
@@ -192,7 +193,7 @@ pub struct InputTaskArgs
     #[arg(short = 't', long)]
     pub task: String,
 
-    #[arg(short = 'p', long, default_value = "Medium")]
+    #[arg(short = 'p', long, default_value = "Low")]
     pub priority: Priority,
 
     #[arg(short = 'e', long, default_value = "")]
@@ -219,8 +220,6 @@ fn add_task_cli(tasks_file: &mut Tasks)
     loop
     {
         println!("{}", "Enter new task");
-        print!("> ");
-        io::stdout().flush().unwrap();
 
         // Read one line of input
         let mut input: String = String::new();
