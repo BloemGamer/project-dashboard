@@ -177,6 +177,7 @@ fn print_task(tasks: &Vec<&Task>)
     println!("{}", table);
 }
 
+// Writing the new tasks to the file, and replacing the whole file
 fn write_tasks(tasks: &Tasks)
 {
     let path = generate_path!(files::base_path(), tasks);
@@ -265,8 +266,6 @@ fn add_task_cli(tasks_file: &mut Tasks)
 
         // Ask if they want to add another
         println!("Do you want to add another task? (Y/n): ");
-        print!("> ");
-        io::stdout().flush().unwrap();
 
         let mut response = String::new();
         if stdin.read_line(&mut response).is_err()

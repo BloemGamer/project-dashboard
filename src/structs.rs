@@ -15,6 +15,7 @@ pub struct Cli
 
 }
 
+// All data that should be found in the TOML files
 #[derive(Debug, serde::Deserialize, Default)]
 pub struct Data
 {
@@ -22,6 +23,7 @@ pub struct Data
     //overview: Option<Overview>,
 }
 
+// for the priority for the tasks
 #[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, Clone, clap::ValueEnum)]
 pub enum Priority
 {
