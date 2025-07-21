@@ -23,7 +23,7 @@ macro_rules! generate_path {
 #[macro_export]
 macro_rules! get_files
 {
-    ($cli:expr, $base_path:expr, $data:expr, $( $field:ident => $type:ty => $variant:ident ),* $(,)?) =>
+    ($cli:expr, $base_path:expr, $data:expr, $( $field:ident => $type:ty),* $(,)?) =>
     {{
         $(
             if $cli.$field.is_some()

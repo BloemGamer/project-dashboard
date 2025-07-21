@@ -15,15 +15,12 @@ pub struct Cli
 
 }
 
-//generate_data_enum!
-//{
-    #[derive(Debug, serde::Deserialize, Default)]
-    pub struct Data
-    {
-        pub tasks: Option<tasks::Tasks> // => Tasks,
-        //overview: Option<Overview>,
-    }
-//}
+#[derive(Debug, serde::Deserialize, Default)]
+pub struct Data
+{
+    pub tasks: Option<tasks::Tasks>,
+    //overview: Option<Overview>,
+}
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, Clone, clap::ValueEnum)]
 pub enum Priority

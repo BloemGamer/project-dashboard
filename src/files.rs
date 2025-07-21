@@ -43,7 +43,7 @@ pub fn read_data(cli: &Cli) -> Data
         cli,
         dashboard_path,
         data,
-        tasks => tasks::Tasks => Tasks,
+        tasks => tasks::Tasks,
     );
     return data
 }
