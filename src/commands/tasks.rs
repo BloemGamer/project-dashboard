@@ -39,11 +39,11 @@ pub fn run(tasks: &mut Tasks, tasks_cli: &TasksCli)
     }
     if tasks_cli.intersects(TasksCli::ADD)
     {
-        add_input(tasks);
+        add_task_cli(tasks);
     }
     if tasks_cli.intersects(TasksCli::REMOVE)
     {
-        remove(tasks);
+        remove_task_cli(tasks);
     }
     if tasks_cli.intersects(TasksCli::REMOVE | TasksCli::ADD)
     {
@@ -212,7 +212,7 @@ impl From<InputTaskArgs> for Task
     }
 }
 
-fn add_input(tasks_file: &mut Tasks)
+fn add_task_cli(tasks_file: &mut Tasks)
 {
     use clap::Parser;
     let stdin = io::stdin();
@@ -286,7 +286,7 @@ fn add_input(tasks_file: &mut Tasks)
     //return output_tasks
 }
 
-fn remove(tasks: &mut Tasks)
+fn remove_task_cli(tasks: &mut Tasks)
 {
     let stdin = io::stdin();
 
@@ -302,8 +302,6 @@ fn remove(tasks: &mut Tasks)
 
         // Ask for task name
         println!("Enter the exact name of the task you want to remove:");
-        print!("> ");
-        io::stdout().flush().unwrap();
 
         let mut input = String::new();
         if stdin.read_line(&mut input).is_err() {
@@ -320,8 +318,6 @@ fn remove(tasks: &mut Tasks)
             {
                 // Confirm deletion
                 println!("Are you sure you want to remove \"{}\"? (Y/n):", task_name);
-                print!("> ");
-                io::stdout().flush().unwrap();
 
                 let mut confirm = String::new();
                 if stdin.read_line(&mut confirm).is_err()
@@ -346,8 +342,6 @@ fn remove(tasks: &mut Tasks)
 
         // Ask if they want to remove another
         println!("Remove another task? (Y/n):");
-        print!("> ");
-        io::stdout().flush().unwrap();
 
         let mut again = String::new();
         if stdin.read_line(&mut again).is_err()
@@ -362,5 +356,4 @@ fn remove(tasks: &mut Tasks)
             break;
         }
     }
-
 }
