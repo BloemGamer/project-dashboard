@@ -6,9 +6,11 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.41", features = ["derive"] }
 serde = { version = "1.0.219", features = ["derive"] }
+ratatui = { version = "0.29.0", features = ["all-widgets"] }
 toml = "0.9.2"
 futures = "0.3.31"
 bitflags = "2.9.1"
 tabled = "0.20.0"
 shell-words = "1.1.0"
+color-eyre = "0.6.5"
 

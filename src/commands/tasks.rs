@@ -1,4 +1,4 @@
-use std::{fmt, io::{self, Write}, str::FromStr};
+use std::{fmt, io::{self}, str::FromStr};
 use bitflags::bitflags;
 use tabled;
 use clap;

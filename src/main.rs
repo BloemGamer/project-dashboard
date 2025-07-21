@@ -7,7 +7,9 @@ mod r#macro;
 mod files;
 mod structs;
 mod commands;
+mod tui;
 
+use ratatui::DefaultTerminal;
 use structs::{
     Data,
     Cli,
@@ -32,5 +34,10 @@ fn main()
     {
         tasks::run(&mut data.tasks.unwrap(), &cli.tasks.unwrap());
     }
+
+    let terminal: DefaultTerminal = ratatui::init();
+    tui::tui::start();
+    tui::tui::run(terminal);
+    ratatui::restore();
 }
 
