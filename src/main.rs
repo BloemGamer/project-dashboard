@@ -4,14 +4,12 @@ use clap::Parser;
 
 #[macro_use]
 mod r#macro;
-#[macro_use]
 mod files;
 mod structs;
 mod commands;
 
 use structs::{
     Data,
-    DataEnum,
     Cli,
 };
 
@@ -28,7 +26,7 @@ fn main()
     let path: PathBuf = files::check_dir_valid().expect("failed in checking the dirs");
     println!("Hello, world! {}", path.display());
 
-    let mut data: Data = files::read_data(&cli);
+    let data: Data = files::read_data(&cli);
 
     if cli.tasks.is_some()
     {

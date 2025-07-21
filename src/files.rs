@@ -1,4 +1,4 @@
-use std::{env, fs, path::PathBuf};
+use std::{env, fs::{self, File}, path::{PathBuf}};
 use toml;
 
 use crate::{
@@ -53,4 +53,17 @@ pub fn base_path() -> PathBuf
     let mut dashboard_path: PathBuf = std::env::current_dir().unwrap();
     dashboard_path.push(".dashboard");
     dashboard_path
+}
+
+pub fn ensure_file_exists(path: &PathBuf) -> Result<(), ()>
+{
+    if !path.exists()
+    {
+        match File::create(path)
+        {
+            Ok(_) => return Ok(()),
+            Err(_) => return Err(()),
+        }
+    }
+    Ok(())
 }
