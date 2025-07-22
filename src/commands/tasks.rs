@@ -1,5 +1,6 @@
 use std::{fmt, io::{self}, str::FromStr};
 use bitflags::bitflags;
+use ratatui::widgets::ListState;
 use tabled;
 use clap;
 use toml;
@@ -11,6 +12,9 @@ use crate::{files, structs::Priority};
 pub struct Tasks
 {
     pub tasks: Vec<Task>,   
+
+    #[serde(skip)]
+    pub list_state: ListState,
 }
 
 fn priority_default() -> Priority { Priority::Low }
@@ -178,7 +182,7 @@ fn print_task(tasks: &Vec<&Task>)
 }
 
 // Writing the new tasks to the file, and replacing the whole file
-fn write_tasks(tasks: &Tasks)
+pub fn write_tasks(tasks: &Tasks)
 {
     let path = generate_path!(files::base_path(), tasks);
 

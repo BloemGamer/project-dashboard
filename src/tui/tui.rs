@@ -1,12 +1,10 @@
 use ratatui::{
-    crossterm::event::{self, Event},
-    layout::{Constraint, Layout, Direction}, 
-    style::{Color, Stylize},
-    widgets::{self, Block, List, ListItem, Paragraph, Widget},
-    prelude::{Rect},
-    DefaultTerminal,
-    Frame
+    crossterm::event::{self, Event}, layout::{Constraint, Direction, Layout}, prelude::Rect, style::{Color, Style, Stylize}, widgets::{self, Block, List, ListItem, Paragraph, Widget}, DefaultTerminal, Frame
 };
+
+use crate::commands::{
+        self, tasks
+    };
 
 use crate::structs::Data;
 
@@ -15,7 +13,7 @@ pub fn start()
     color_eyre::install().unwrap();
 }
 
-pub fn run(mut terminal: DefaultTerminal, mut data: &mut Data)
+pub fn run(mut terminal: DefaultTerminal, data: &mut Data)
 {
     'main_render_loop: loop
     {
@@ -28,13 +26,45 @@ pub fn run(mut terminal: DefaultTerminal, mut data: &mut Data)
             match key.code
             {
                 event::KeyCode::Esc => { break 'main_render_loop; }
+                event::KeyCode::Char(char) =>
+                {
+                    match char
+                    {
+                        'X' =>
+                        {
+                            if let Some(tasks) = data.tasks.as_mut()
+                            {
+                                if let Some(index) = tasks.list_state.selected()
+                                {
+                                    tasks.tasks.remove(index);
+                                };
+                            }
+                        }
+                        'k' =>
+                        {
+                            if let Some(tasks) = data.tasks.as_mut()
+                            {
+                                tasks.list_state.select_previous();
+                            }
+                        }
+                        'j' =>
+                        {
+                            if let Some(tasks) = data.tasks.as_mut()
+                            {
+                                tasks.list_state.select_next();
+                            }
+                        }
+                        _ => {},
+                    }
+                }
                 _ => {},
             }
         }
     }
+    commands::tasks::write_tasks(data.tasks.as_ref().unwrap());
 }
 
-fn render(frame: &mut Frame, mut data: &Data)
+fn render(frame: &mut Frame, data: &mut Data)
 {
     let chunks: [Rect; 1] = Layout::default()
         .direction(Direction::Vertical)
@@ -55,13 +85,19 @@ fn render(frame: &mut Frame, mut data: &Data)
         render(border_area, frame.buffer_mut());
 
 
-    List::new(data.tasks.as_ref().unwrap().tasks
+    let list: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
             .iter()
             .map(|x| ListItem::from(x.task.clone()))
         )
-        .render(inner_area, frame.buffer_mut());
+        .highlight_symbol(">")
+        .highlight_style(Style::default()
+            .fg(Color::Green)
+        )
+    ;
+        //.render(inner_area, frame.buffer_mut());
 
+    let tasks: &mut tasks::Tasks = data.tasks.as_mut().unwrap();
+    frame.render_stateful_widget(list, inner_area, &mut tasks.list_state);
 
     Paragraph::new("Hello World! :D").render(frame.area(), frame.buffer_mut());
-
 }

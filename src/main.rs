@@ -28,9 +28,10 @@ fn main()
     let path: PathBuf = files::check_dir_valid().expect("failed in checking the dirs");
     println!("Hello, world! {}", path.display());
 
+    cli.tasks = Some(commands::tasks::TasksCli::NONE);
+    
     let mut data: Data = files::read_data(&cli);
 
-    cli.tasks = Some(commands::tasks::TasksCli::NONE);
 
     if cli.tasks.is_some()
     {
