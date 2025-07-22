@@ -1,4 +1,4 @@
-use std::{fmt, io::{self}, str::FromStr};
+use std::{io::{self}, str::FromStr};
 use bitflags::bitflags;
 use ratatui::widgets::ListState;
 use tabled;
@@ -55,20 +55,6 @@ pub fn run(tasks: &mut Tasks, tasks_cli: &TasksCli)
     }
 }
 
-// For printing Priority
-impl fmt::Display for Priority
-{
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result
-    {
-        let s = match self
-        {
-            Priority::Low => "Low",
-            Priority::Medium => "Medium",
-            Priority::High => "High",
-        };
-        write!(f, "{}", s)
-    }
-}
 
 impl Priority
 {
