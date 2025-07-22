@@ -82,9 +82,9 @@ fn render(frame: &mut Frame, data: &mut Data)
         .constraints([Constraint::Fill(1)].as_ref())
         .areas(border_area);
 
-    Block::bordered().border_type(widgets::BorderType::Rounded).
-        fg(Color::Magenta).
-        render(border_area, frame.buffer_mut());
+    Block::bordered().border_type(widgets::BorderType::Rounded)
+        .fg(Color::Magenta)
+        .render(border_area, frame.buffer_mut());
 
 
     let list: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
