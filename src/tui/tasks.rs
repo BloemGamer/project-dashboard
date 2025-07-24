@@ -17,7 +17,7 @@ use crate::{
         Priority,
     },
     tui::{
-        tui::{self, TasksState},
+        self, TasksState,
     }
 };
 

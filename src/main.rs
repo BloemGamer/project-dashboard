@@ -39,8 +39,8 @@ fn main()
     }
 
     let terminal: DefaultTerminal = ratatui::init();
-    tui::tui::start();
-    tui::tui::run(terminal, &mut data);
+    tui::start();
+    tui::run(terminal, &mut data);
     ratatui::restore();
 }
 

@@ -1,2 +1,3 @@
-pub mod tui;
+mod tui;
+pub use tui::*;
 pub mod tasks;
