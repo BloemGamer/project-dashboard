@@ -1,5 +1,6 @@
 use ratatui::{
     DefaultTerminal,
+    style::Color,
 };
 
 use crate::{
@@ -11,6 +12,17 @@ use crate::{
         tasks,
     }
 };
+
+
+pub enum TuiColor
+{
+}
+
+impl TuiColor
+{
+    pub const DEFAULT_TEXT: Color = Color::Blue;
+    pub const SELECTED: Color = Color::Gray;
+}
 
 pub enum TuiState
 {

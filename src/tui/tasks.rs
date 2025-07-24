@@ -17,7 +17,7 @@ use crate::{
         Priority,
     },
     tui::{
-        self, TasksState,
+        self, TasksState, TuiColor,
     }
 };
 
@@ -274,7 +274,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
     let inner_description_area: Rect = chunks_inner[2];
 
     Block::bordered().border_type(widgets::BorderType::Rounded)
-        .fg(Color::Magenta)
+        .fg(TuiColor::DEFAULT_TEXT)
         .render(border_area, frame.buffer_mut());
 
 
@@ -284,7 +284,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
         )
         .highlight_symbol(">")
         .highlight_style(Style::default()
-            .fg(Color::Green)
+            .fg(TuiColor::SELECTED)
         );
 
     let list_priority: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
@@ -292,7 +292,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
             .map(|x| ListItem::from(x.priority.to_string()))
         )
         .highlight_style(Style::default()
-            .fg(Color::Green)
+            .fg(TuiColor::SELECTED)
         );
 
     let list_description: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
@@ -300,7 +300,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
             .map(|x| ListItem::from(x.description.clone()))
         )
         .highlight_style(Style::default()
-            .fg(Color::Green)
+            .fg(TuiColor::SELECTED)
         );
 
     let tasks: &mut commands::tasks::Tasks = data.tasks.as_mut().unwrap();
@@ -324,7 +324,7 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     let popup_block: Block<'_> = Block::bordered()
         .title("Add New Task")
         .border_type(widgets::BorderType::Rounded)
-        .fg(Color::Yellow);
+        .fg(TuiColor::DEFAULT_TEXT);
     
     frame.render_widget(popup_block, popup_area);
     
@@ -342,9 +342,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Task input field
     let task_style: Style = if adding_state.current_field == AddingField::Task {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(TuiColor::SELECTED)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(TuiColor::DEFAULT_TEXT)
     };
     
     let task_input: Paragraph<'_> = Paragraph::new(adding_state.input_task.as_str())
@@ -354,9 +354,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Priority input field
     let priority_style: Style = if adding_state.current_field == AddingField::Priority {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(TuiColor::SELECTED)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(TuiColor::DEFAULT_TEXT)
     };
     
     let priority_display: String = format!("{} (h/m/l or ↑↓)", adding_state.selected_priority);
@@ -367,9 +367,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Explanation input field
     let description_style: Style = if adding_state.current_field == AddingField::Description {
-        Style::default().fg(Color::Yellow)
+        Style::default().fg(TuiColor::SELECTED)
     } else {
-        Style::default().fg(Color::White)
+        Style::default().fg(TuiColor::DEFAULT_TEXT)
     };
     
     let description_input: Paragraph<'_> = Paragraph::new(adding_state.input_description.as_str())
