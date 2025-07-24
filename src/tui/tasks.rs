@@ -2,7 +2,7 @@ use ratatui::{
     crossterm::event::{self, Event, KeyEvent},
     layout::{Constraint, Direction, Layout, Margin},
     prelude::Rect,
-    style::{Color, Style, Stylize},
+    style::{Style, Stylize},
     widgets::{self, Block, List, ListItem, Paragraph, Widget, Clear},
     DefaultTerminal,
     Frame,
@@ -379,7 +379,7 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Help text
     let help_text: Paragraph<'_> = Paragraph::new("Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel")
-        .style(Style::default().fg(Color::Gray));
+        .style(Style::default().fg(TuiColor::DEFAULT_TEXT));
     frame.render_widget(help_text, chunks[3]);
     
     // Set cursor position for the active field
