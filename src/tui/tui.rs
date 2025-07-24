@@ -14,7 +14,14 @@ use crate::{
 
 pub enum TuiState
 {
-    Tasks,
+    Tasks(TasksState),
+    Exit,
+}
+
+pub enum TasksState
+{
+    Main,
+    Adding,
     Exit,
 }
 
@@ -25,12 +32,12 @@ pub fn start()
 
 pub fn run(mut terminal: DefaultTerminal, data: &mut Data)
 {
-    let mut state: TuiState = TuiState::Tasks;
+    let mut state: TuiState = TuiState::Tasks(TasksState::Main);
     'main_render_loop: loop
     {
         state = match state 
         {
-            TuiState::Tasks => tasks::run(&mut terminal, data),
+            TuiState::Tasks(state) => tasks::run(&mut terminal, data, state),
 
             TuiState::Exit => break 'main_render_loop,
         }
