@@ -18,7 +18,7 @@ pub struct Tasks
 }
 
 fn priority_default() -> Priority { Priority::Low }
-fn explanation_default() -> String { String::new() }
+fn description_default() -> String { String::new() }
 
 #[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, clap::Parser, Clone)]
 pub struct Task
@@ -30,9 +30,9 @@ pub struct Task
     #[tabled{rename = "Priority"}]
     pub priority: Priority,
 
-    #[serde(default = "explanation_default")]
-    #[tabled{rename = "Explanation"}]
-    pub explanation: String,
+    #[serde(default = "description_default")]
+    #[tabled{rename = "Description"}]
+    pub description: String,
 }
 
 pub fn run(tasks: &mut Tasks, tasks_cli: &TasksCli)
@@ -199,7 +199,7 @@ impl From<InputTaskArgs> for Task
         {
             task: args.task,
             priority: args.priority,
-            explanation: args.explanation,
+            description: args.explanation,
         }
     }
 }
