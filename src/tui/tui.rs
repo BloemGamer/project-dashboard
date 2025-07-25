@@ -37,6 +37,7 @@ pub enum TasksState
 {
     Main,
     Adding,
+    Editing,
     Exit,
 }
 
