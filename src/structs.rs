@@ -9,10 +9,11 @@ use crate::{commands::{
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = "A tool for checking and keeping track of your project")]
+#[allow(dead_code)]
 pub struct Cli
 {
-    #[arg(short, long, num_args(0..=1), default_missing_value = "none")]
-    pub tasks: Option<tasks::TasksCli>,
+    //#[arg(short, long, num_args(0..=1), default_missing_value = "none")]
+    //pub tasks: Option<tasks::TasksCli>,
 
 }
 

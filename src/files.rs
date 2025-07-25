@@ -3,7 +3,6 @@ use toml;
 
 use crate::{
     Data,
-    Cli,
 };
 
 
@@ -34,13 +33,12 @@ pub fn check_dir_valid() -> Result<PathBuf, ()>
 
 
 
-pub fn read_data(cli: &Cli) -> Data
+pub fn read_data() -> Data
 {
     let dashboard_path: PathBuf = base_path();
     let mut data: Data = Data::new();
 
     get_files!(
-        cli,
         dashboard_path,
         data,
         tasks => tasks::Tasks,
