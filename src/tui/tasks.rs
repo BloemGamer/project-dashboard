@@ -1,5 +1,5 @@
 use ratatui::{
-    crossterm::event::{self, Event, KeyEvent},
+    crossterm::event::{self, KeyEvent},
     layout::{Constraint, Direction, Layout, Margin},
     prelude::Rect,
     style::{Style, Stylize},
@@ -18,6 +18,7 @@ use crate::{
     },
     tui::{
         self, TasksState,
+        tui::TuiColor,
     }
 };
 
@@ -51,6 +52,116 @@ impl Default for AddingState
     }
 }
 
+impl AddingState
+{
+    fn handle_field_navigation(&mut self, key: KeyEvent) -> bool
+    {
+        match key.code
+        {
+            event::KeyCode::Tab =>
+            {
+                if key.modifiers.contains(event::KeyModifiers::SHIFT)
+                {
+                    self.cycle_field_backward();
+                } else {
+                    self.cycle_field_forward();
+                }
+                true
+            }
+            event::KeyCode::BackTab =>
+            {
+                self.cycle_field_backward();
+                true
+            }
+            _ => false
+        }
+    }
+    
+    fn cycle_field_forward(&mut self)
+    {
+        self.current_field = match self.current_field
+        {
+            AddingField::Task => AddingField::Priority,
+            AddingField::Priority => AddingField::Description,
+            AddingField::Description => AddingField::Task,
+        };
+    }
+    
+    fn cycle_field_backward(&mut self)
+    {
+        self.current_field = match self.current_field
+        {
+            AddingField::Task => AddingField::Description,
+            AddingField::Priority => AddingField::Task,
+            AddingField::Description => AddingField::Priority,
+        };
+    }
+    
+    fn handle_character_input(&mut self, c: char)
+    {
+        match self.current_field
+        {
+            AddingField::Task => self.input_task.push(c),
+            AddingField::Priority =>
+            {
+                match c.to_ascii_lowercase()
+                {
+                    'h' => self.selected_priority = Priority::High,
+                    'm' => self.selected_priority = Priority::Medium,
+                    'l' => self.selected_priority = Priority::Low,
+                    _ => {}
+                }
+            }
+            AddingField::Description => self.input_description.push(c),
+        }
+    }
+    
+    fn handle_backspace(&mut self)
+    {
+        match self.current_field
+        {
+            AddingField::Task => { self.input_task.pop(); }
+            AddingField::Priority =>
+            {
+                self.selected_priority = match self.selected_priority
+                {
+                    Priority::High => Priority::Low,
+                    Priority::Medium => Priority::High,
+                    Priority::Low => Priority::Medium,
+                };
+            }
+            AddingField::Description => { self.input_description.pop(); }
+        }
+    }
+    
+    fn handle_priority_arrows(&mut self)
+    {
+        if self.current_field == AddingField::Priority
+        {
+            self.selected_priority = match self.selected_priority
+            {
+                Priority::High => Priority::Medium,
+                Priority::Medium => Priority::Low,
+                Priority::Low => Priority::High,
+            };
+        }
+    }
+    
+    fn to_task(&self) -> commands::tasks::Task
+    {
+        commands::tasks::Task
+        {
+            task: self.input_task.clone(),
+            priority: self.selected_priority.clone(),
+            description: self.input_description.clone(),
+        }
+    }
+    
+    fn is_valid(&self) -> bool
+    {
+        !self.input_task.trim().is_empty()
+    }
+}
 
 pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, mut state: TasksState) -> tui::TuiState
 {
@@ -79,7 +190,7 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, mut state: TasksStat
             }
         };
         // input handeling
-        if let Event::Key(key) = event::read().unwrap()
+        if let event::Event::Key(key) = event::read().unwrap()
         {
             state = match state
             {
@@ -126,7 +237,7 @@ fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingSta
                     { 
                         if let Some(index) = tasks.list_state.selected()
                         {
-                            *adding_state = AddingState{
+                            *adding_state = AddingState {
                                 current_field: AddingField::Task,
                                 input_task: tasks.tasks[index].task.clone(),
                                 selected_priority: tasks.tasks[index].priority.clone(),
@@ -159,464 +270,243 @@ fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingSta
     tui::TasksState::Main
 }
 
-fn handle_keys_adding(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState) -> TasksState
+fn handle_keys_form(
+    key: KeyEvent, 
+    data: &mut Data, 
+    adding_state: &mut AddingState, 
+    index: Option<usize>
+) -> TasksState
 {
     match key.code
     {
         event::KeyCode::Esc =>
-        { 
-            // Clear inputs and return to main
+        {
             *adding_state = AddingState::default();
-            return tui::TasksState::Main; 
+            return TasksState::Main;
         }
-        event::KeyCode::Tab =>
-        {
-            // Check if Shift is held for reverse cycling
-            if key.modifiers.contains(event::KeyModifiers::SHIFT)
-            {
-                // Cycle backwards through fields
-                adding_state.current_field = match adding_state.current_field
-                {
-                    AddingField::Task => AddingField::Description,
-                    AddingField::Priority => AddingField::Task,
-                    AddingField::Description => AddingField::Priority,
-                };
-            } else {
-                // Cycle forward through fields
-                adding_state.current_field = match adding_state.current_field
-                {
-                    AddingField::Task => AddingField::Priority,
-                    AddingField::Priority => AddingField::Description,
-                    AddingField::Description => AddingField::Task,
-                };
-            }
-        }
-        event::KeyCode::BackTab =>
-        {
-            // BackTab is specifically Shift+Tab on some terminals
-            adding_state.current_field = match adding_state.current_field
-            {
-                AddingField::Task => AddingField::Description,
-                AddingField::Priority => AddingField::Task,
-                AddingField::Description => AddingField::Priority,
-            };
-        }
+        
         event::KeyCode::Enter =>
         {
-            // Add the task if all fields have content
-            if !adding_state.input_task.trim().is_empty()
+            if adding_state.is_valid()
             {
                 if let Some(tasks) = data.tasks.as_mut()
                 {
-                    let new_task = commands::tasks::Task
+                    let new_task = adding_state.to_task();
+                    
+                    match index
                     {
-                        task: adding_state.input_task.clone(),
-                        priority: adding_state.selected_priority.clone(),
-                        description: adding_state.input_description.clone(),
-                    };
-                    tasks.tasks.push(new_task);
-                }
-                return tui::TasksState::Main;
-            }
-        }
-        event::KeyCode::Char(c) =>
-        {
-            // Add character to current field
-            match adding_state.current_field
-            {
-                AddingField::Task => adding_state.input_task.push(c),
-                AddingField::Priority =>
-                {
-                    // Cycle through priority options with h/m/l keys
-                    match c.to_ascii_lowercase() {
-                        'h' => adding_state.selected_priority = Priority::High,
-                        'm' => adding_state.selected_priority = Priority::Medium,
-                        'l' => adding_state.selected_priority = Priority::Low,
-                        _ => {} // Ignore other characters for priority field
+                        Some(idx) => tasks.tasks[idx] = new_task, // Edit mode
+                        None => tasks.tasks.push(new_task),       // Add mode
                     }
                 }
-                AddingField::Description => adding_state.input_description.push(c),
+                return TasksState::Main;
             }
         }
+        
+        event::KeyCode::Char(c) =>
+        {
+            adding_state.handle_character_input(c);
+        }
+        
         event::KeyCode::Backspace =>
         {
-            // Remove character from current field
-            match adding_state.current_field
-            {
-                AddingField::Task => { adding_state.input_task.pop(); }
-                AddingField::Priority =>
-                {
-                    // For priority, cycle backwards through options
-                    adding_state.selected_priority = match adding_state.selected_priority
-                    {
-                        Priority::High => Priority::Low,
-                        Priority::Medium => Priority::High,
-                        Priority::Low => Priority::Medium,
-                    };
-                }
-                AddingField::Description => { adding_state.input_description.pop(); }
-            }
+            adding_state.handle_backspace();
         }
+        
         event::KeyCode::Up | event::KeyCode::Down =>
         {
-            // Arrow keys for priority selection
-            if adding_state.current_field == AddingField::Priority
+            adding_state.handle_priority_arrows();
+        }
+        
+        _ =>
+        {
+            if adding_state.handle_field_navigation(key)
             {
-                adding_state.selected_priority = match adding_state.selected_priority
-                {
-                    Priority::High => Priority::Medium,
-                    Priority::Medium => Priority::Low,
-                    Priority::Low => Priority::High,
-                };
+                // Field navigation was handled
             }
         }
-        _ => {},
     }
-    tui::TasksState::Adding
+    
+    // Return appropriate state based on mode
+    match index
+    {
+        Some(_) => TasksState::Editing,
+        None => TasksState::Adding,
+    }
+}
+
+fn handle_keys_adding(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState) -> TasksState
+{
+    handle_keys_form(key, data, adding_state, None)
 }
 
 fn handle_keys_editing(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState, index: usize) -> TasksState
 {
-    match key.code
-    {
-        event::KeyCode::Esc =>
-        { 
-            // Clear inputs and return to main
-            *adding_state = AddingState::default();
-            return tui::TasksState::Main; 
-        }
-        event::KeyCode::Tab =>
-        {
-            // Check if Shift is held for reverse cycling
-            if key.modifiers.contains(event::KeyModifiers::SHIFT)
-            {
-                // Cycle backwards through fields
-                adding_state.current_field = match adding_state.current_field
-                {
-                    AddingField::Task => AddingField::Description,
-                    AddingField::Priority => AddingField::Task,
-                    AddingField::Description => AddingField::Priority,
-                };
-            } else {
-                // Cycle forward through fields
-                adding_state.current_field = match adding_state.current_field
-                {
-                    AddingField::Task => AddingField::Priority,
-                    AddingField::Priority => AddingField::Description,
-                    AddingField::Description => AddingField::Task,
-                };
-            }
-        }
-        event::KeyCode::BackTab =>
-        {
-            // BackTab is specifically Shift+Tab on some terminals
-            adding_state.current_field = match adding_state.current_field
-            {
-                AddingField::Task => AddingField::Description,
-                AddingField::Priority => AddingField::Task,
-                AddingField::Description => AddingField::Priority,
-            };
-        }
-        event::KeyCode::Enter =>
-        {
-            // Add the task if all fields have content
-            if !adding_state.input_task.trim().is_empty()
-            {
-                if let Some(tasks) = data.tasks.as_mut()
-                {
-                    let new_task = commands::tasks::Task
-                    {
-                        task: adding_state.input_task.clone(),
-                        priority: adding_state.selected_priority.clone(),
-                        description: adding_state.input_description.clone(),
-                    };
-                    tasks.tasks[index] = new_task;
-                }
-                return tui::TasksState::Main;
-            }
-        }
-        event::KeyCode::Char(c) =>
-        {
-            // Add character to current field
-            match adding_state.current_field
-            {
-                AddingField::Task => adding_state.input_task.push(c),
-                AddingField::Priority =>
-                {
-                    // Cycle through priority options with h/m/l keys
-                    match c.to_ascii_lowercase() {
-                        'h' => adding_state.selected_priority = Priority::High,
-                        'm' => adding_state.selected_priority = Priority::Medium,
-                        'l' => adding_state.selected_priority = Priority::Low,
-                        _ => {} // Ignore other characters for priority field
-                    }
-                }
-                AddingField::Description => adding_state.input_description.push(c),
-            }
-        }
-        event::KeyCode::Backspace =>
-        {
-            // Remove character from current field
-            match adding_state.current_field
-            {
-                AddingField::Task => { adding_state.input_task.pop(); }
-                AddingField::Priority =>
-                {
-                    // For priority, cycle backwards through options
-                    adding_state.selected_priority = match adding_state.selected_priority
-                    {
-                        Priority::High => Priority::Low,
-                        Priority::Medium => Priority::High,
-                        Priority::Low => Priority::Medium,
-                    };
-                }
-                AddingField::Description => { adding_state.input_description.pop(); }
-            }
-        }
-        event::KeyCode::Up | event::KeyCode::Down =>
-        {
-            // Arrow keys for priority selection
-            if adding_state.current_field == AddingField::Priority
-            {
-                adding_state.selected_priority = match adding_state.selected_priority
-                {
-                    Priority::High => Priority::Medium,
-                    Priority::Medium => Priority::Low,
-                    Priority::Low => Priority::High,
-                };
-            }
-        }
-        _ => {},
-    }
-    tui::TasksState::Editing
+    handle_keys_form(key, data, adding_state, Some(index))
 }
 
-fn render_main(frame: &mut Frame, data: &mut Data)
+struct FormField<'a>
 {
-    Paragraph::new("Main").render(frame.area(), frame.buffer_mut());
-    let chunks: [Rect; 1] = Layout::default()
+    title: &'a str,
+    content: String,
+    is_active: bool,
+    help_text: Option<&'a str>,
+}
+
+impl<'a> FormField<'a>
+{
+    fn new(title: &'a str, content: String, is_active: bool) -> Self
+    {
+        Self { title, content, is_active, help_text: None }
+    }
+    
+    fn with_help(mut self, help: &'a str) -> Self
+    {
+        self.help_text = Some(help);
+        self
+    }
+    
+    fn render(&self, frame: &mut Frame, area: Rect, colors: &TuiColor)
+    {
+        let style = if self.is_active
+        {
+            Style::default().fg(colors.selected)
+        } else {
+            Style::default().fg(colors.default_text)
+        };
+        
+        let display_content = match self.help_text
+        {
+            Some(help) => format!("{} {}", self.content, help),
+            None => self.content.clone(),
+        };
+        
+        let paragraph = Paragraph::new(display_content)
+            .style(style)
+            .block(Block::bordered().title(self.title));
+        
+        frame.render_widget(paragraph, area);
+    }
+}
+
+fn render_form(
+    frame: &mut Frame, 
+    data: &mut Data, 
+    adding_state: &AddingState, 
+    title: &str,
+    help_text: &str
+)
+{
+    render_main(frame, data);
+    
+    let popup_area = centered_rect(70, 40, frame.area());
+    frame.render_widget(Clear, popup_area);
+    
+    let popup_block = Block::bordered()
+        .title(title)
+        .border_type(widgets::BorderType::Rounded)
+        .fg(data.settings.colors.default_text);
+    
+    frame.render_widget(popup_block, popup_area);
+    
+    let inner_area = popup_area.inner(Margin::new(1, 1));
+    let chunks: [Rect; 4] = Layout::default()
         .direction(Direction::Vertical)
-        .margin(1)
-        .constraints([Constraint::Fill(1)].as_ref())
-        .areas(frame.area());
-
-    let border_area: Rect = chunks[0];
-
-    let chunks_inner: [Rect; 3] = Layout::default()
-        .direction(Direction::Horizontal)
-        .margin(1)
-        .constraints([Constraint::Percentage(30), Constraint::Percentage(20), Constraint::Percentage(50)].as_ref())
-        .areas(border_area);
-
-    let inner_name_area: Rect = chunks_inner[0];
-    let inner_priority_area: Rect = chunks_inner[1];
-    let inner_description_area: Rect = chunks_inner[2];
-
-    Block::bordered().border_type(widgets::BorderType::Rounded)
-        .fg(data.settings.colors.default_text)
-        .render(border_area, frame.buffer_mut());
-
-
-    let list_name: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
-            .iter()
-            .map(|x| ListItem::from(x.task.clone()))
-        )
-        .highlight_symbol(">")
-        .highlight_style(Style::default()
-            .fg(data.settings.colors.selected)
-        );
-
-    let list_priority: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
-            .iter()
-            .map(|x| ListItem::from(x.priority.to_string()))
-        )
-        .highlight_style(Style::default()
-            .fg(data.settings.colors.selected)
-        );
-
-    let list_description: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
-            .iter()
-            .map(|x| ListItem::from(x.description.clone()))
-        )
-        .highlight_style(Style::default()
-            .fg(data.settings.colors.selected)
-        );
-
-    let tasks: &mut commands::tasks::Tasks = data.tasks.as_mut().unwrap();
-    frame.render_stateful_widget(list_name, inner_name_area, &mut tasks.list_state);
-    frame.render_stateful_widget(list_priority, inner_priority_area, &mut tasks.list_state);
-    frame.render_stateful_widget(list_description, inner_description_area, &mut tasks.list_state);
-
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(3),
+            Constraint::Length(2),
+        ])
+        .areas(inner_area);
+    
+    // Render form fields
+    let fields = [
+        FormField::new("Task Name", adding_state.input_task.clone(), 
+                      adding_state.current_field == AddingField::Task),
+        FormField::new("Priority", adding_state.selected_priority.to_string(), 
+                      adding_state.current_field == AddingField::Priority)
+            .with_help("(h/m/l or ↑↓)"),
+        FormField::new("Description", adding_state.input_description.clone(), 
+                      adding_state.current_field == AddingField::Description),
+    ];
+    
+    for (i, field) in fields.iter().enumerate()
+    {
+        field.render(frame, chunks[i], &data.settings.colors);
+    }
+    
+    // Help text
+    let help = Paragraph::new(help_text)
+        .style(Style::default().fg(data.settings.colors.default_text));
+    frame.render_widget(help, chunks[3]);
+    
+    // Set cursor position
+    let cursor_pos = match adding_state.current_field
+    {
+        AddingField::Task => (chunks[0].x + adding_state.input_task.len() as u16 + 1, chunks[0].y + 1),
+        AddingField::Priority => (chunks[1].x + 1, chunks[1].y + 1),
+        AddingField::Description => (chunks[2].x + adding_state.input_description.len() as u16 + 1, chunks[2].y + 1),
+    };
+    frame.set_cursor_position(cursor_pos);
 }
 
 fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
 {
-    // First render the main view as background
-    render_main(frame, data);
-    
-    // Create a centered popup area
-    let popup_area: Rect = centered_rect(70, 40, frame.area());
-    
-    // Clear the popup area
-    frame.render_widget(Clear, popup_area);
-    
-    // Create the main popup block
-    let popup_block: Block<'_> = Block::bordered()
-        .title("Add New Task")
-        .border_type(widgets::BorderType::Rounded)
-        .fg(data.settings.colors.default_text);
-    
-    frame.render_widget(popup_block, popup_area);
-    
-    // Create inner layout for the form fields
-    let inner_area: Rect = popup_area.inner(Margin::new(1, 1));
-    let chunks: [Rect; 4] = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Task input
-            Constraint::Length(3), // Priority input  
-            Constraint::Length(3), // Explanation input
-            Constraint::Length(2), // Help text
-        ])
-        .areas(inner_area);
-    
-    // Task input field
-    let task_style: Style = if adding_state.current_field == AddingField::Task
-    {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let task_input: Paragraph<'_> = Paragraph::new(adding_state.input_task.as_str())
-        .style(task_style)
-        .block(Block::bordered().title("Task Name"));
-    frame.render_widget(task_input, chunks[0]);
-    
-    // Priority input field
-    let priority_style: Style = if adding_state.current_field == AddingField::Priority
-    {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let priority_display: String = format!("{} (h/m/l or ↑↓)", adding_state.selected_priority);
-    let priority_input: Paragraph<'_> = Paragraph::new(priority_display)
-        .style(priority_style)
-        .block(Block::bordered().title("Priority"));
-    frame.render_widget(priority_input, chunks[1]);
-    
-    // Explanation input field
-    let description_style: Style = if adding_state.current_field == AddingField::Description
-    {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let description_input: Paragraph<'_> = Paragraph::new(adding_state.input_description.as_str())
-        .style(description_style)
-        .block(Block::bordered().title("Description"));
-    frame.render_widget(description_input, chunks[2]);
-    
-    // Help text
-    let help_text: Paragraph<'_> = Paragraph::new("Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel")
-        .style(Style::default().fg(data.settings.colors.default_text));
-    frame.render_widget(help_text, chunks[3]);
-    
-    // Set cursor position for the active field
-    let cursor_pos: (u16, u16) = match adding_state.current_field {
-        AddingField::Task => (chunks[0].x + adding_state.input_task.len() as u16 + 1, chunks[0].y + 1),
-        AddingField::Priority => (chunks[1].x + 1, chunks[1].y + 1), // Fixed position for priority
-        AddingField::Description => (chunks[2].x + adding_state.input_description.len() as u16 + 1, chunks[2].y + 1),
-    };
-    frame.set_cursor_position((cursor_pos.0, cursor_pos.1));
+    render_form(frame, data, adding_state, "Add New Task", 
+                "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel");
 }
 
 fn render_editing(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
 {
-    // First render the main view as background
-    render_main(frame, data);
-    
-    // Create a centered popup area
-    let popup_area: Rect = centered_rect(70, 40, frame.area());
-    
-    // Clear the popup area
-    frame.render_widget(Clear, popup_area);
-    
-    // Create the main popup block
-    let popup_block: Block<'_> = Block::bordered()
-        .title("Edit Task")
-        .border_type(widgets::BorderType::Rounded)
-        .fg(data.settings.colors.default_text);
-    
-    frame.render_widget(popup_block, popup_area);
-    
-    // Create inner layout for the form fields
-    let inner_area: Rect = popup_area.inner(Margin::new(1, 1));
-    let chunks: [Rect; 4] = Layout::default()
+    render_form(frame, data, adding_state, "Edit Task", 
+                "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Save task | Esc: Cancel");
+}
+
+fn create_task_list<'a, F>(tasks: &'a [commands::tasks::Task], extractor: F, colors: &TuiColor) -> List<'a>
+where 
+    F: Fn(&commands::tasks::Task) -> String,
+{
+    List::new(
+        tasks.iter()
+            .map(|task| ListItem::from(extractor(task)))
+            .collect::<Vec<_>>()
+    )
+    .highlight_style(Style::default().fg(colors.selected))
+}
+
+fn render_main(frame: &mut Frame, data: &mut Data)
+{
+    let chunks: [Rect; 1] = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // Task input
-            Constraint::Length(3), // Priority input  
-            Constraint::Length(3), // Explanation input
-            Constraint::Length(2), // Help text
-        ])
-        .areas(inner_area);
-    
-    // Task input field
-    let task_style: Style = if adding_state.current_field == AddingField::Task
+        .margin(1)
+        .constraints([Constraint::Fill(1)])
+        .areas(frame.area());
+
+    let chunks_inner: [Rect; 3] = Layout::default()
+        .direction(Direction::Horizontal)
+        .margin(1)
+        .constraints([Constraint::Percentage(30), Constraint::Percentage(20), Constraint::Percentage(50)])
+        .areas(chunks[0]);
+
+    Block::bordered()
+        .border_type(widgets::BorderType::Rounded)
+        .fg(data.settings.colors.default_text)
+        .render(chunks[0], frame.buffer_mut());
+
+    if let Some(tasks_data) = data.tasks.as_mut()
     {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let task_input: Paragraph<'_> = Paragraph::new(adding_state.input_task.as_str())
-        .style(task_style)
-        .block(Block::bordered().title("Task Name"));
-    frame.render_widget(task_input, chunks[0]);
-    
-    // Priority input field
-    let priority_style: Style = if adding_state.current_field == AddingField::Priority
-    {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let priority_display: String = format!("{} (h/m/l or ↑↓)", adding_state.selected_priority);
-    let priority_input: Paragraph<'_> = Paragraph::new(priority_display)
-        .style(priority_style)
-        .block(Block::bordered().title("Priority"));
-    frame.render_widget(priority_input, chunks[1]);
-    
-    // Explanation input field
-    let description_style: Style = if adding_state.current_field == AddingField::Description
-    {
-        Style::default().fg(data.settings.colors.selected)
-    } else {
-        Style::default().fg(data.settings.colors.default_text)
-    };
-    
-    let description_input: Paragraph<'_> = Paragraph::new(adding_state.input_description.as_str())
-        .style(description_style)
-        .block(Block::bordered().title("Description"));
-    frame.render_widget(description_input, chunks[2]);
-    
-    // Help text
-    let help_text: Paragraph<'_> = Paragraph::new("Tab: Next field | h/m/l or ↑↓: Priority | Enter: Save task | Esc: Cancel")
-        .style(Style::default().fg(data.settings.colors.default_text));
-    frame.render_widget(help_text, chunks[3]);
-    
-    // Set cursor position for the active field
-    let cursor_pos: (u16, u16) = match adding_state.current_field {
-        AddingField::Task => (chunks[0].x + adding_state.input_task.len() as u16 + 1, chunks[0].y + 1),
-        AddingField::Priority => (chunks[1].x + 1, chunks[1].y + 1), // Fixed position for priority
-        AddingField::Description => (chunks[2].x + adding_state.input_description.len() as u16 + 1, chunks[2].y + 1),
-    };
-    frame.set_cursor_position((cursor_pos.0, cursor_pos.1));
+        let lists = [
+            (create_task_list(&tasks_data.tasks, |t| t.task.clone(), &data.settings.colors).highlight_symbol(">"), chunks_inner[0]),
+            (create_task_list(&tasks_data.tasks, |t| t.priority.to_string(), &data.settings.colors), chunks_inner[1]),
+            (create_task_list(&tasks_data.tasks, |t| t.description.clone(), &data.settings.colors), chunks_inner[2]),
+        ];
+
+        for (list, area) in lists
+        {
+            frame.render_stateful_widget(list, area, &mut tasks_data.list_state);
+        }
+    }
 }
 
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect
