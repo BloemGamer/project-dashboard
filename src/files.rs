@@ -3,6 +3,7 @@ use toml;
 
 use crate::{
     Data,
+    structs,
 };
 
 
@@ -41,10 +42,13 @@ pub fn read_data() -> Data
     get_files!(
         dashboard_path,
         data,
-        tasks => tasks::Tasks,
+        tasks => commands::tasks::Tasks => None,
+        settings => structs::Settings => structs::Settings::new(),
     );
     return data
 }
+
+
 
 pub fn base_path() -> PathBuf
 {

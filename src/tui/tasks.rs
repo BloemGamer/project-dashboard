@@ -17,7 +17,7 @@ use crate::{
         Priority,
     },
     tui::{
-        self, TasksState, TuiColor,
+        self, TasksState,
     }
 };
 
@@ -274,7 +274,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
     let inner_description_area: Rect = chunks_inner[2];
 
     Block::bordered().border_type(widgets::BorderType::Rounded)
-        .fg(TuiColor::DEFAULT_TEXT)
+        .fg(data.settings.colors.default_text)
         .render(border_area, frame.buffer_mut());
 
 
@@ -284,7 +284,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
         )
         .highlight_symbol(">")
         .highlight_style(Style::default()
-            .fg(TuiColor::SELECTED)
+            .fg(data.settings.colors.selected)
         );
 
     let list_priority: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
@@ -292,7 +292,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
             .map(|x| ListItem::from(x.priority.to_string()))
         )
         .highlight_style(Style::default()
-            .fg(TuiColor::SELECTED)
+            .fg(data.settings.colors.selected)
         );
 
     let list_description: List<'_> = List::new(data.tasks.as_ref().unwrap().tasks
@@ -300,7 +300,7 @@ fn render_main(frame: &mut Frame, data: &mut Data)
             .map(|x| ListItem::from(x.description.clone()))
         )
         .highlight_style(Style::default()
-            .fg(TuiColor::SELECTED)
+            .fg(data.settings.colors.selected)
         );
 
     let tasks: &mut commands::tasks::Tasks = data.tasks.as_mut().unwrap();
@@ -324,7 +324,7 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     let popup_block: Block<'_> = Block::bordered()
         .title("Add New Task")
         .border_type(widgets::BorderType::Rounded)
-        .fg(TuiColor::DEFAULT_TEXT);
+        .fg(data.settings.colors.default_text);
     
     frame.render_widget(popup_block, popup_area);
     
@@ -342,9 +342,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Task input field
     let task_style: Style = if adding_state.current_field == AddingField::Task {
-        Style::default().fg(TuiColor::SELECTED)
+        Style::default().fg(data.settings.colors.selected)
     } else {
-        Style::default().fg(TuiColor::DEFAULT_TEXT)
+        Style::default().fg(data.settings.colors.default_text)
     };
     
     let task_input: Paragraph<'_> = Paragraph::new(adding_state.input_task.as_str())
@@ -354,9 +354,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Priority input field
     let priority_style: Style = if adding_state.current_field == AddingField::Priority {
-        Style::default().fg(TuiColor::SELECTED)
+        Style::default().fg(data.settings.colors.selected)
     } else {
-        Style::default().fg(TuiColor::DEFAULT_TEXT)
+        Style::default().fg(data.settings.colors.default_text)
     };
     
     let priority_display: String = format!("{} (h/m/l or ↑↓)", adding_state.selected_priority);
@@ -367,9 +367,9 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Explanation input field
     let description_style: Style = if adding_state.current_field == AddingField::Description {
-        Style::default().fg(TuiColor::SELECTED)
+        Style::default().fg(data.settings.colors.selected)
     } else {
-        Style::default().fg(TuiColor::DEFAULT_TEXT)
+        Style::default().fg(data.settings.colors.default_text)
     };
     
     let description_input: Paragraph<'_> = Paragraph::new(adding_state.input_description.as_str())
@@ -379,7 +379,7 @@ fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
     
     // Help text
     let help_text: Paragraph<'_> = Paragraph::new("Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel")
-        .style(Style::default().fg(TuiColor::DEFAULT_TEXT));
+        .style(Style::default().fg(data.settings.colors.default_text));
     frame.render_widget(help_text, chunks[3]);
     
     // Set cursor position for the active field

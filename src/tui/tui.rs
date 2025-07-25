@@ -14,8 +14,11 @@ use crate::{
 };
 
 
-pub enum TuiColor
+#[derive(Default, Debug, serde::Deserialize, serde::Serialize)]
+pub struct TuiColor
 {
+    pub default_text: Color,
+    pub selected: Color,
 }
 
 impl TuiColor

@@ -3,9 +3,7 @@ use clap::{self, Parser};
 use serde;
 use tabled;
 
-use crate::{commands::{
-    tasks,
-}};
+use crate::{commands::tasks, tui::TuiColor};
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = "A tool for checking and keeping track of your project")]
@@ -21,8 +19,15 @@ pub struct Cli
 #[derive(Debug, serde::Deserialize, Default)]
 pub struct Data
 {
+    pub settings: Settings,
     pub tasks: Option<tasks::Tasks>,
     //overview: Option<Overview>,
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize, Default)]
+pub struct Settings
+{
+    pub colors: TuiColor,
 }
 
 // for the priority for the tasks
@@ -54,7 +59,18 @@ impl Data
 {
     pub fn new() -> Self 
     {
-        Self { tasks: None }
+        Self { 
+            tasks: None,
+            settings: Settings::new(),
+        }
+    }
+}
+
+impl Settings
+{
+    pub fn new() -> Self
+    {
+        Self { colors: TuiColor { selected: TuiColor::SELECTED, default_text: TuiColor::DEFAULT_TEXT }, }
     }
 }
 

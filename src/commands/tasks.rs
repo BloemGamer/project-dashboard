@@ -3,7 +3,10 @@ use tabled;
 use clap;
 use toml;
 
-use crate::{files, structs::Priority};
+use crate::{
+    files,
+    structs::Priority,
+};
 
 
 #[derive(Debug, serde::Deserialize, serde::Serialize)]
