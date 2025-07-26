@@ -17,13 +17,8 @@ fn main()
     //let mut cli: Cli = Cli::parse();
     let path: PathBuf = files::check_dir_valid().expect("failed in checking the dirs");
     println!("Hello, world! {}", path.display());
-
-    //cli.tasks = Some(commands::tasks::TasksCli::NONE);
     
     let mut data: Data = files::read_data();
-
-
-    //tasks::run(&mut data.tasks.as_mut().unwrap(), &cli.tasks.as_ref().unwrap());
 
     let terminal: DefaultTerminal = ratatui::init();
     tui::start();

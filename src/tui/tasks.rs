@@ -17,8 +17,7 @@ use crate::{
         Priority,
     },
     tui::{
-        self, TasksState,
-        tui::TuiColor,
+        self, tui::TuiColor, AppState, TasksState
     }
 };
 
@@ -163,36 +162,33 @@ impl AddingState
     }
 }
 
-pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, mut state: TasksState) -> tui::TuiState
+macro_rules! draw_terminal
+{
+    ($terminal:expr => $render_function:ident ( $($args:expr),*): $app_state:expr, $data:expr) =>
+    {{
+        if !$app_state.has_error()
+        {
+            $terminal.draw(|frame| $render_function(frame $(, $args)*)).unwrap();
+        } else {
+            $terminal.draw(|frame|
+            {
+                $render_function(frame $(, $args)*);
+                crate::tui::render_popup(frame, $app_state.error_state.as_ref().unwrap(), &$data.settings.colors)
+            }).unwrap();
+        }
+    }};
+}
+
+pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppState) -> tui::TuiState
 {
     let mut adding_state = AddingState::default();
 
     'tasks_render_loop: loop
     {
-        // rendering
-        match state
+        if let tui::TuiState::Tasks(ref task_state) = app_state.current_state
         {
-            TasksState::Exit => 
-            {
-                break 'tasks_render_loop;
-            }
-            TasksState::Main => 
-            {
-                terminal.draw(|frame| render_main(frame, data)).unwrap();
-            }
-            TasksState::Adding => 
-            {
-                terminal.draw(|frame| render_adding(frame, data, &adding_state)).unwrap();
-            }
-            TasksState::Editing => 
-            {
-                terminal.draw(|frame| render_editing(frame, data, &adding_state)).unwrap();
-            }
-        };
-        // input handeling
-        if let event::Event::Key(key) = event::read().unwrap()
-        {
-            state = match state
+            // rendering
+            match task_state
             {
                 TasksState::Exit => 
                 {
@@ -200,15 +196,48 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, mut state: TasksStat
                 }
                 TasksState::Main => 
                 {
-                    handle_keys_main(key, data, &mut adding_state)
+                    draw_terminal!(terminal => render_main(data): app_state, data);
                 }
                 TasksState::Adding => 
                 {
-                    handle_keys_adding(key, data, &mut adding_state)
+                    draw_terminal!(terminal => render_adding(data, &adding_state): app_state, data);
                 }
                 TasksState::Editing => 
                 {
-                    handle_keys_editing(key, data, &mut adding_state, data.tasks.as_ref().unwrap().list_state.selected().unwrap())
+                    draw_terminal!(terminal => render_editing(data, &adding_state): app_state, data);
+                }
+            };
+            // input handeling
+            if let event::Event::Key(key) = event::read().unwrap()
+            {
+                if app_state.has_error()
+                {
+                    match key.code
+                    {
+                        event::KeyCode::Enter | event::KeyCode::Esc | event::KeyCode::Char(' ') =>
+                            app_state.clear_error(),
+                        _ => {},
+                    }
+                } else {
+                    match task_state
+                    {
+                        TasksState::Exit => 
+                        {
+                            break 'tasks_render_loop;
+                        }
+                        TasksState::Main => 
+                        {
+                            handle_keys_main(app_state, key, data, &mut adding_state);
+                        }
+                        TasksState::Adding => 
+                        {
+                            handle_keys_adding(app_state, key, data, &mut adding_state);
+                        }
+                        TasksState::Editing => 
+                        {
+                            handle_keys_editing(app_state, key, data, &mut adding_state, data.tasks.as_ref().unwrap().list_state.selected().unwrap());
+                        }
+                    }
                 }
             }
         }
@@ -217,11 +246,11 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, mut state: TasksStat
     tui::TuiState::Exit
 }
 
-fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState) -> tui::TasksState
+fn handle_keys_main(app_state: &mut AppState, key: KeyEvent, data: &mut Data, adding_state: &mut AddingState)
 {
     match key.code
     {
-        event::KeyCode::Esc => { return tui::TasksState::Exit; }
+        event::KeyCode::Esc => { app_state.current_state = tui::TuiState::Tasks(TasksState::Exit); return; }
         event::KeyCode::Char(char) =>
         {
             if let Some(tasks) = data.tasks.as_mut()
@@ -231,9 +260,10 @@ fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingSta
                     'A' => 
                     {
                         *adding_state = Default::default();
-                        return tui::TasksState::Adding
+                        app_state.current_state = tui::TuiState::Tasks(TasksState::Exit);
+                        return;
                     },
-                    'E' => return 
+                    'E' =>
                     { 
                         if let Some(index) = tasks.list_state.selected()
                         {
@@ -242,9 +272,13 @@ fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingSta
                                 input_task: tasks.tasks[index].task.clone(),
                                 selected_priority: tasks.tasks[index].priority.clone(),
                                 input_description: tasks.tasks[index].description.clone(),
-                            }
+                            };
+                            app_state.current_state = tui::TuiState::Tasks(tui::TasksState::Editing);
+                            return;
+                        } else {
+                            app_state.set_error("Nothing selected".to_string(), "No task has been selected".to_string(), tui::ErrorType::Warning);
+                            return;
                         };
-                        tui::TasksState::Editing
                     },
                     'X' =>
                     {
@@ -267,22 +301,24 @@ fn handle_keys_main(key: KeyEvent, data: &mut Data, adding_state: &mut AddingSta
         }
         _ => {},
     }
-    tui::TasksState::Main
+    return;
 }
 
 fn handle_keys_form(
+    app_state: &mut AppState,
     key: KeyEvent, 
     data: &mut Data, 
     adding_state: &mut AddingState, 
     index: Option<usize>
-) -> TasksState
+)
 {
     match key.code
     {
         event::KeyCode::Esc =>
         {
             *adding_state = AddingState::default();
-            return TasksState::Main;
+            app_state.current_state = tui::TuiState::Tasks(TasksState::Main);
+            return;
         }
         
         event::KeyCode::Enter =>
@@ -299,7 +335,8 @@ fn handle_keys_form(
                         None => tasks.tasks.push(new_task),       // Add mode
                     }
                 }
-                return TasksState::Main;
+                app_state.current_state = tui::TuiState::Tasks(TasksState::Main);
+                return;
             }
         }
         
@@ -328,21 +365,21 @@ fn handle_keys_form(
     }
     
     // Return appropriate state based on mode
-    match index
+    app_state.current_state = match index
     {
-        Some(_) => TasksState::Editing,
-        None => TasksState::Adding,
+        Some(_) => tui::TuiState::Tasks(TasksState::Editing),
+        None => tui::TuiState::Tasks(TasksState::Adding),
     }
 }
 
-fn handle_keys_adding(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState) -> TasksState
+fn handle_keys_adding(app_state: &mut AppState, key: KeyEvent, data: &mut Data, adding_state: &mut AddingState)
 {
-    handle_keys_form(key, data, adding_state, None)
+    handle_keys_form(app_state, key, data, adding_state, None)
 }
 
-fn handle_keys_editing(key: KeyEvent, data: &mut Data, adding_state: &mut AddingState, index: usize) -> TasksState
+fn handle_keys_editing(app_state: &mut AppState, key: KeyEvent, data: &mut Data, adding_state: &mut AddingState, index: usize)
 {
-    handle_keys_form(key, data, adding_state, Some(index))
+    handle_keys_form(app_state, key, data, adding_state, Some(index))
 }
 
 struct FormField<'a>
@@ -399,7 +436,7 @@ fn render_form(
 {
     render_main(frame, data);
     
-    let popup_area = centered_rect(70, 40, frame.area());
+    let popup_area = tui::centered_rect(70, 40, frame.area());
     frame.render_widget(Clear, popup_area);
     
     let popup_block = Block::bordered()
@@ -509,25 +546,3 @@ fn render_main(frame: &mut Frame, data: &mut Data)
     }
 }
 
-fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect
-{
-    let popup_layout: [Rect; 3] = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .areas(r);
-
-    let horizontal_layout: [Rect; 3] = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .areas(popup_layout[1]);
-        
-    horizontal_layout[1]
-}
