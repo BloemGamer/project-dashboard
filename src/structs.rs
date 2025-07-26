@@ -1,7 +1,6 @@
 use std::fmt;
 use clap::{self, Parser};
 use serde;
-use tabled;
 
 use crate::{commands::tasks, tui::TuiColor};
 
@@ -31,7 +30,7 @@ pub struct Settings
 }
 
 // for the priority for the tasks
-#[derive(Debug, serde::Deserialize, serde::Serialize, tabled::Tabled, Clone, clap::ValueEnum)]
+#[derive(Debug, serde::Deserialize, serde::Serialize, Clone, clap::ValueEnum)]
 pub enum Priority
 {
     High,
