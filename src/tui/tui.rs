@@ -137,7 +137,7 @@ pub fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect
     horizontal_layout[1]
 }
 
-pub fn render_popup(frame: &mut Frame, error_info: &ErrorInfo, colors: &TuiColor)
+pub fn render_log_popup(frame: &mut Frame, error_info: &ErrorInfo, colors: &TuiColor)
 {
     use ratatui::{
         widgets::{Clear, Block, Paragraph, Wrap},

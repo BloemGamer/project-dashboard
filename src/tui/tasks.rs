@@ -3,7 +3,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Margin},
     prelude::Rect,
     style::{Style, Stylize},
-    widgets::{self, Block, List, ListItem, Paragraph, Widget, Clear},
+    widgets::{self, Block, List, ListItem, Paragraph, Widget, Clear, Wrap},
     DefaultTerminal,
     Frame,
 };
@@ -35,6 +35,8 @@ pub struct AddingState
     pub selected_priority: Priority,
     pub input_description: String,
     pub current_field: AddingField,
+    pub description_scroll_offset: u16,
+    pub form_dimensions: FormDimensions,
 }
 
 impl Default for AddingState
@@ -47,12 +49,79 @@ impl Default for AddingState
             selected_priority: Priority::Medium,
             input_description: String::new(),
             current_field: AddingField::Task,
+            description_scroll_offset: 0,
+            form_dimensions: FormDimensions::new(),
         }
     }
 }
 
-impl AddingState
-{
+
+impl AddingState {
+    pub fn new() -> Self
+    {
+        Default::default()
+    }
+    
+    // Auto-scroll to keep cursor visible
+    pub fn calculate_max_scroll(&self, field_width: u16, field_height: u16) -> u16
+    {
+        if field_width == 0 || field_height == 0
+        {
+            return 0;
+        }
+        
+        let text_lines = if self.input_description.is_empty()
+        {
+            1
+        } else {
+            (self.input_description.len() as u16 + field_width - 1) / field_width
+        };
+        
+        text_lines.saturating_sub(field_height)
+    }
+    
+    pub fn auto_scroll_to_cursor(&mut self, form_dimensions: &FormDimensions)
+    {
+        if form_dimensions.field_width == 0 || form_dimensions.field_height == 0
+        {
+            return;
+        }
+        
+        let cursor_line = if self.input_description.is_empty()
+        {
+            0
+        } else {
+            (self.input_description.len() as u16) / form_dimensions.field_width
+        };
+        
+        let max_scroll = self.calculate_max_scroll(form_dimensions.field_width, form_dimensions.field_height);
+        
+        // Scroll down if cursor is below visible area
+        if cursor_line >= self.description_scroll_offset + form_dimensions.field_height
+        {
+            self.description_scroll_offset = cursor_line.saturating_sub(form_dimensions.field_height - 1);
+        }
+        // Scroll up if cursor is above visible area
+        else if cursor_line < self.description_scroll_offset
+        {
+            self.description_scroll_offset = cursor_line;
+        }
+        
+        // Clamp to max scroll
+        self.description_scroll_offset = self.description_scroll_offset.min(max_scroll);
+    }
+    
+    pub fn scroll_up(&mut self, amount: u16)
+    {
+        self.description_scroll_offset = self.description_scroll_offset.saturating_sub(amount);
+    }
+    
+    pub fn scroll_down(&mut self, amount: u16, field_width: u16, field_height: u16)
+    {
+        let max_scroll = self.calculate_max_scroll(field_width, field_height);
+        self.description_scroll_offset = (self.description_scroll_offset + amount).min(max_scroll);
+    }
+
     fn handle_field_navigation(&mut self, key: KeyEvent) -> bool
     {
         match key.code
@@ -133,7 +202,7 @@ impl AddingState
         }
     }
     
-    fn handle_priority_arrows(&mut self)
+    fn handle_arrows(&mut self, form_dimensions: &FormDimensions, key: KeyEvent)
     {
         if self.current_field == AddingField::Priority
         {
@@ -143,6 +212,18 @@ impl AddingState
                 Priority::Medium => Priority::Low,
                 Priority::Low => Priority::High,
             };
+        }
+        if self.current_field == AddingField::Description
+        {
+            match key.code
+            {
+                event::KeyCode::Up => self.scroll_up(1),
+                event::KeyCode::Down => 
+                {
+                    self.scroll_down(1, form_dimensions.field_width, form_dimensions.field_height)
+                },
+                _ => {},
+            }
         }
     }
     
@@ -162,6 +243,31 @@ impl AddingState
     }
 }
 
+#[derive(Clone)]
+pub struct FormDimensions
+{
+    pub field_width: u16,
+    pub field_height: u16,
+}
+
+impl FormDimensions
+{
+    pub fn new() -> Self
+    {
+        Self { field_width: 0, field_height: 0 }
+    }
+
+    pub fn calculate(frame_area: Rect) -> Self
+    {
+        Self
+        {
+            field_width: frame_area.width.saturating_sub(2),
+            field_height: frame_area.height.saturating_sub(2),
+        }
+    }
+}
+
+
 macro_rules! draw_terminal
 {
     ($terminal:expr => $render_function:ident ( $($args:expr),*): $app_state:expr, $data:expr) =>
@@ -173,7 +279,7 @@ macro_rules! draw_terminal
             $terminal.draw(|frame|
             {
                 $render_function(frame $(, $args)*);
-                crate::tui::render_popup(frame, $app_state.error_state.as_ref().unwrap(), &$data.settings.colors)
+                crate::tui::render_log_popup(frame, $app_state.error_state.as_ref().unwrap(), &$data.settings.colors)
             }).unwrap();
         }
     }};
@@ -200,11 +306,11 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppS
                 }
                 TasksState::Adding => 
                 {
-                    draw_terminal!(terminal => render_adding(data, &adding_state): app_state, data);
+                    draw_terminal!(terminal => render_adding(data, &mut adding_state): app_state, data);
                 }
                 TasksState::Editing => 
                 {
-                    draw_terminal!(terminal => render_editing(data, &adding_state): app_state, data);
+                    draw_terminal!(terminal => render_editing(data, &mut adding_state): app_state, data);
                 }
             };
             // input handeling
@@ -272,6 +378,8 @@ fn handle_keys_main(app_state: &mut AppState, key: KeyEvent, data: &mut Data, ad
                                 input_task: tasks.tasks[index].task.clone(),
                                 selected_priority: tasks.tasks[index].priority.clone(),
                                 input_description: tasks.tasks[index].description.clone(),
+                                description_scroll_offset: 0,
+                                form_dimensions: FormDimensions::new(),
                             };
                             app_state.current_state = tui::TuiState::Tasks(tui::TasksState::Editing);
                             return;
@@ -352,7 +460,8 @@ fn handle_keys_form(
         
         event::KeyCode::Up | event::KeyCode::Down =>
         {
-            adding_state.handle_priority_arrows();
+            let form_dimensions: FormDimensions = adding_state.form_dimensions.clone();
+            adding_state.handle_arrows(&form_dimensions, key);
         }
         
         _ =>
@@ -429,14 +538,16 @@ impl<'a> FormField<'a>
 fn render_form(
     frame: &mut Frame, 
     data: &mut Data, 
-    adding_state: &AddingState, 
+    adding_state: &mut AddingState, 
     title: &str,
     help_text: &str
 )
 {
     render_main(frame, data);
     
-    let popup_area = tui::centered_rect(70, 40, frame.area());
+    
+    // Make popup bigger to accommodate more content
+    let popup_area = tui::centered_rect(70, 60, frame.area());
     frame.render_widget(Clear, popup_area);
     
     let popup_block = Block::bordered()
@@ -450,51 +561,97 @@ fn render_form(
     let chunks: [Rect; 4] = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(2),
+            Constraint::Length(3),      // Task name - fixed
+            Constraint::Length(3),      // Priority - fixed  
+            Constraint::Min(5),         // Description - grows as needed
+            Constraint::Length(2),      // Help text - fixed
         ])
         .areas(inner_area);
     
-    // Render form fields
-    let fields = [
-        FormField::new("Task Name", adding_state.input_task.clone(), 
-                      adding_state.current_field == AddingField::Task),
-        FormField::new("Priority", adding_state.selected_priority.to_string(), 
-                      adding_state.current_field == AddingField::Priority)
-            .with_help("(h/m/l or ↑↓)"),
-        FormField::new("Description", adding_state.input_description.clone(), 
-                      adding_state.current_field == AddingField::Description),
+    adding_state.form_dimensions = FormDimensions::calculate(chunks[2]);
+
+    // Render all fields as paragraphs
+    let field_data = [
+        ("Task Name", &adding_state.input_task, adding_state.current_field == AddingField::Task, false),
+        ("Priority (h/m/l or ↑↓)", &adding_state.selected_priority.to_string(), adding_state.current_field == AddingField::Priority, false),
+        ("Description", &adding_state.input_description, adding_state.current_field == AddingField::Description, true),
     ];
     
-    for (i, field) in fields.iter().enumerate()
-    {
-        field.render(frame, chunks[i], &data.settings.colors);
+    for (i, (label, value, is_selected, wrap)) in field_data.iter().enumerate() {
+        let style = if *is_selected {
+            Style::default().fg(data.settings.colors.selected)
+        } else {
+            Style::default().fg(data.settings.colors.default_text)
+        };
+        
+        let mut paragraph = if *wrap {
+            Paragraph::new(value.as_str())
+                .block(Block::bordered().title(*label))
+                .wrap(Wrap { trim: true })
+                .style(style)
+        } else {
+            Paragraph::new(value.as_str())
+                .block(Block::bordered().title(*label))
+                .style(style)
+        };
+        
+        // Add scrolling for description field
+        if i == 2 && *wrap {
+            paragraph = paragraph.scroll((adding_state.description_scroll_offset, 0));
+        }
+        
+        frame.render_widget(paragraph, chunks[i]);
     }
     
-    // Help text
-    let help = Paragraph::new(help_text)
+    // Help text with scroll instructions
+    let help_with_scroll = if adding_state.current_field == AddingField::Description {
+        format!("{} | ↑↓ to scroll", help_text)
+    } else {
+        help_text.to_string()
+    };
+    
+    let help = Paragraph::new(help_with_scroll)
         .style(Style::default().fg(data.settings.colors.default_text));
     frame.render_widget(help, chunks[3]);
     
-    // Set cursor position
+    // Set cursor position with wrapping consideration for description
     let cursor_pos = match adding_state.current_field
     {
         AddingField::Task => (chunks[0].x + adding_state.input_task.len() as u16 + 1, chunks[0].y + 1),
         AddingField::Priority => (chunks[1].x + 1, chunks[1].y + 1),
-        AddingField::Description => (chunks[2].x + adding_state.input_description.len() as u16 + 1, chunks[2].y + 1),
+        AddingField::Description => {
+            // Calculate wrapped position considering scroll
+            let field_width = chunks[2].width.saturating_sub(2);
+            let field_height = chunks[2].height.saturating_sub(2);
+            let text_len = adding_state.input_description.len() as u16;
+            let line = text_len / field_width;
+            let col = text_len % field_width;
+            
+            // Adjust for scroll offset
+            let visible_line = line.saturating_sub(adding_state.description_scroll_offset);
+            
+            // Keep cursor within visible area
+            let cursor_y = if visible_line < field_height {
+                chunks[2].y + visible_line + 1
+            } else {
+                chunks[2].y + field_height // Bottom of visible area
+            };
+            
+            (chunks[2].x + col + 1, cursor_y)
+        },
     };
     frame.set_cursor_position(cursor_pos);
+    let form_dimensions: FormDimensions = adding_state.form_dimensions.clone();
+    adding_state.auto_scroll_to_cursor(&form_dimensions);
 }
 
-fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
+fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &mut AddingState)
 {
     render_form(frame, data, adding_state, "Add New Task", 
                 "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel");
 }
 
-fn render_editing(frame: &mut Frame, data: &mut Data, adding_state: &AddingState)
+fn render_editing(frame: &mut Frame, data: &mut Data, adding_state: &mut AddingState)
 {
     render_form(frame, data, adding_state, "Edit Task", 
                 "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Save task | Esc: Cancel");
