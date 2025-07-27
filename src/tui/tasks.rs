@@ -260,7 +260,7 @@ fn handle_keys_main(app_state: &mut AppState, key: KeyEvent, data: &mut Data, ad
                     'A' => 
                     {
                         *adding_state = Default::default();
-                        app_state.current_state = tui::TuiState::Tasks(TasksState::Exit);
+                        app_state.current_state = tui::TuiState::Tasks(TasksState::Adding);
                         return;
                     },
                     'E' =>
