@@ -53,6 +53,28 @@ impl fmt::Display for Priority
     }
 }
 
+impl Priority
+{
+    pub fn next(&mut self)
+    {
+        *self = match self
+        {
+            Priority::High => Priority::Low,
+            Priority::Medium => Priority::High,
+            Priority::Low => Priority::Medium,
+        }
+    }
+    
+    pub fn previous(&mut self)
+    {
+        *self = match self
+        {
+            Priority::Low => Priority::High,
+            Priority::High => Priority::Medium,
+            Priority::Medium => Priority::Low,
+        }
+    }
+}
 
 impl Data 
 {

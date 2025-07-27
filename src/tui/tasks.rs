@@ -206,12 +206,12 @@ impl AddingState {
     {
         if self.current_field == AddingField::Priority
         {
-            self.selected_priority = match self.selected_priority
+            match key.code
             {
-                Priority::High => Priority::Medium,
-                Priority::Medium => Priority::Low,
-                Priority::Low => Priority::High,
-            };
+                event::KeyCode::Up => self.selected_priority.next(),
+                event::KeyCode::Down => self.selected_priority.previous(),
+                _ => {},
+            }
         }
         if self.current_field == AddingField::Description
         {
