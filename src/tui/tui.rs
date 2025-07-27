@@ -73,6 +73,7 @@ pub struct ErrorInfo
 }
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum ErrorType
 {
     Warning,

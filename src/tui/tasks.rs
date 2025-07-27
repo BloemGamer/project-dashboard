@@ -43,6 +43,14 @@ impl Default for AddingState
 {
     fn default() -> Self
     {
+        Self::new()
+    }
+}
+
+
+impl AddingState {
+    pub fn new() -> Self
+    {
         Self
         {
             input_task: String::new(),
@@ -52,14 +60,6 @@ impl Default for AddingState
             description_scroll_offset: 0,
             form_dimensions: FormDimensions::new(),
         }
-    }
-}
-
-
-impl AddingState {
-    pub fn new() -> Self
-    {
-        Default::default()
     }
     
     // Auto-scroll to keep cursor visible
@@ -489,50 +489,6 @@ fn handle_keys_adding(app_state: &mut AppState, key: KeyEvent, data: &mut Data, 
 fn handle_keys_editing(app_state: &mut AppState, key: KeyEvent, data: &mut Data, adding_state: &mut AddingState, index: usize)
 {
     handle_keys_form(app_state, key, data, adding_state, Some(index))
-}
-
-struct FormField<'a>
-{
-    title: &'a str,
-    content: String,
-    is_active: bool,
-    help_text: Option<&'a str>,
-}
-
-impl<'a> FormField<'a>
-{
-    fn new(title: &'a str, content: String, is_active: bool) -> Self
-    {
-        Self { title, content, is_active, help_text: None }
-    }
-    
-    fn with_help(mut self, help: &'a str) -> Self
-    {
-        self.help_text = Some(help);
-        self
-    }
-    
-    fn render(&self, frame: &mut Frame, area: Rect, colors: &TuiColor)
-    {
-        let style = if self.is_active
-        {
-            Style::default().fg(colors.selected)
-        } else {
-            Style::default().fg(colors.default_text)
-        };
-        
-        let display_content = match self.help_text
-        {
-            Some(help) => format!("{} {}", self.content, help),
-            None => self.content.clone(),
-        };
-        
-        let paragraph = Paragraph::new(display_content)
-            .style(style)
-            .block(Block::bordered().title(self.title));
-        
-        frame.render_widget(paragraph, area);
-    }
 }
 
 fn render_form(
