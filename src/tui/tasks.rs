@@ -604,10 +604,11 @@ fn render_form(
     }
     
     // Help text with scroll instructions
-    let help_with_scroll = if adding_state.current_field == AddingField::Description {
-        format!("{} | ↑↓ to scroll", help_text)
-    } else {
-        help_text.to_string()
+    let help_with_scroll = match adding_state.current_field
+    {
+        AddingField::Task => format!("{}", help_text),
+        AddingField::Priority => format!("{} | h/m/l or ↑↓", help_text),
+        AddingField::Description => format!("{} | ↑↓ to scroll", help_text),
     };
     
     let help = Paragraph::new(help_with_scroll)
@@ -648,13 +649,13 @@ fn render_form(
 fn render_adding(frame: &mut Frame, data: &mut Data, adding_state: &mut AddingState)
 {
     render_form(frame, data, adding_state, "Add New Task", 
-                "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Add task | Esc: Cancel");
+                "Tab: Next field | Enter: Add task | Esc: Cancel");
 }
 
 fn render_editing(frame: &mut Frame, data: &mut Data, adding_state: &mut AddingState)
 {
     render_form(frame, data, adding_state, "Edit Task", 
-                "Tab: Next field | h/m/l or ↑↓: Priority | Enter: Save task | Esc: Cancel");
+                "Tab: Next field | Enter: Save task | Esc: Cancel");
 }
 
 fn create_task_list<'a, F>(tasks: &'a [commands::tasks::Task], extractor: F, colors: &TuiColor) -> List<'a>
