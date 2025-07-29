@@ -1,9 +1,9 @@
 use ratatui::{
-    crossterm::event::{self, KeyEvent},
+    crossterm::event::{self, KeyEvent, KeyEventKind},
     layout::{Constraint, Direction, Layout, Margin},
     prelude::Rect,
     style::{Style, Stylize},
-    widgets::{self, Block, List, ListItem, Paragraph, Widget, Clear, Wrap},
+    widgets::{self, Block, Clear, List, ListItem, Paragraph, Widget, Wrap},
     DefaultTerminal,
     Frame,
 };
@@ -316,32 +316,35 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppS
             // input handeling
             if let event::Event::Key(key) = event::read().unwrap()
             {
-                if app_state.has_error()
+                if key.kind == KeyEventKind::Press
                 {
-                    match key.code
+                    if app_state.has_error()
                     {
-                        event::KeyCode::Enter | event::KeyCode::Esc | event::KeyCode::Char(' ') =>
+                        match key.code
+                        {
+                            event::KeyCode::Enter | event::KeyCode::Esc | event::KeyCode::Char(' ') =>
                             app_state.clear_error(),
-                        _ => {},
-                    }
-                } else {
-                    match task_state
-                    {
-                        TasksState::Exit => 
-                        {
-                            break 'tasks_render_loop;
+                            _ => {},
                         }
-                        TasksState::Main => 
+                    } else {
+                        match task_state
                         {
-                            handle_keys_main(app_state, key, data, &mut adding_state);
-                        }
-                        TasksState::Adding => 
-                        {
-                            handle_keys_adding(app_state, key, data, &mut adding_state);
-                        }
-                        TasksState::Editing => 
-                        {
-                            handle_keys_editing(app_state, key, data, &mut adding_state, data.tasks.as_ref().unwrap().list_state.selected().unwrap());
+                            TasksState::Exit => 
+                            {
+                                break 'tasks_render_loop;
+                            }
+                            TasksState::Main => 
+                            {
+                                handle_keys_main(app_state, key, data, &mut adding_state);
+                            }
+                            TasksState::Adding => 
+                            {
+                                handle_keys_adding(app_state, key, data, &mut adding_state);
+                            }
+                            TasksState::Editing => 
+                            {
+                                handle_keys_editing(app_state, key, data, &mut adding_state, data.tasks.as_ref().unwrap().list_state.selected().unwrap());
+                            }
                         }
                     }
                 }
@@ -659,4 +662,3 @@ fn render_main(frame: &mut Frame, data: &mut Data)
         }
     }
 }
-
