@@ -277,7 +277,7 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppS
     {
         let tui::TuiState::Tasks(ref task_state) = app_state.current_state else
         {
-            continue 'tasks_render_loop;
+            break 'tasks_render_loop;
         };
 
         if matches!(task_state, TasksState::Exit)
