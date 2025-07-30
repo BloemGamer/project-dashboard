@@ -1,4 +1,3 @@
-
 #[macro_export]
 macro_rules! generate_path
 {
@@ -25,3 +24,22 @@ macro_rules! get_files
 
     }};
 }
+
+#[macro_export]
+macro_rules! draw_terminal
+{
+    ($terminal:expr => $render_function:ident ( $($args:expr),*): $app_state:expr, $data:expr) =>
+    {{
+        if !$app_state.has_error()
+        {
+            $terminal.draw(|frame| $render_function(frame $(, $args)*)).unwrap();
+        } else {
+            $terminal.draw(|frame|
+            {
+                $render_function(frame $(, $args)*);
+                crate::tui::render_log_popup(frame, $app_state.error_state.as_ref().unwrap(), &$data.settings.colors)
+            }).unwrap();
+        }
+    }};
+}
+

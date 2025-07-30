@@ -268,22 +268,6 @@ impl FormDimensions
 }
 
 
-macro_rules! draw_terminal
-{
-    ($terminal:expr => $render_function:ident ( $($args:expr),*): $app_state:expr, $data:expr) =>
-    {{
-        if !$app_state.has_error()
-        {
-            $terminal.draw(|frame| $render_function(frame $(, $args)*)).unwrap();
-        } else {
-            $terminal.draw(|frame|
-            {
-                $render_function(frame $(, $args)*);
-                crate::tui::render_log_popup(frame, $app_state.error_state.as_ref().unwrap(), &$data.settings.colors)
-            }).unwrap();
-        }
-    }};
-}
 
 pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppState) -> tui::TuiState
 {
@@ -291,63 +275,76 @@ pub fn run(terminal: &mut DefaultTerminal, data: &mut Data, app_state: &mut AppS
 
     'tasks_render_loop: loop
     {
-        if let tui::TuiState::Tasks(ref task_state) = app_state.current_state
+        let tui::TuiState::Tasks(ref task_state) = app_state.current_state else
         {
-            // rendering
-            match task_state
+            continue 'tasks_render_loop;
+        };
+
+        if matches!(task_state, TasksState::Exit)
+        {
+            break 'tasks_render_loop;
+        }
+
+        // rendering
+        match task_state
+        {
+            TasksState::Main =>
             {
-                TasksState::Exit => 
-                {
-                    break 'tasks_render_loop;
-                }
-                TasksState::Main => 
-                {
-                    draw_terminal!(terminal => render_main(data): app_state, data);
-                }
-                TasksState::Adding => 
-                {
-                    draw_terminal!(terminal => render_adding(data, &mut adding_state): app_state, data);
-                }
-                TasksState::Editing => 
-                {
-                    draw_terminal!(terminal => render_editing(data, &mut adding_state): app_state, data);
-                }
-            };
-            // input handeling
-            if let event::Event::Key(key) = event::read().unwrap()
+                draw_terminal!(terminal => render_main(data): app_state, data);
+            }
+            TasksState::Adding =>
             {
-                if key.kind == KeyEventKind::Press
+                draw_terminal!(terminal => render_adding(data, &mut adding_state): app_state, data);
+            }
+            TasksState::Editing =>
+            {
+                draw_terminal!(terminal => render_editing(data, &mut adding_state): app_state, data);
+            }
+            TasksState::Exit => unreachable!(),
+        }
+
+        // input handling
+        let event::Event::Key(key) = event::read().unwrap() else
+        {
+            continue 'tasks_render_loop;
+        };
+
+        if key.kind != KeyEventKind::Press
+        {
+            continue 'tasks_render_loop;
+        }
+
+        if app_state.has_error()
+        {
+            match key.code
+            {
+                event::KeyCode::Enter | event::KeyCode::Esc | event::KeyCode::Char(' ') =>
                 {
-                    if app_state.has_error()
-                    {
-                        match key.code
-                        {
-                            event::KeyCode::Enter | event::KeyCode::Esc | event::KeyCode::Char(' ') =>
-                            app_state.clear_error(),
-                            _ => {},
-                        }
-                    } else {
-                        match task_state
-                        {
-                            TasksState::Exit => 
-                            {
-                                break 'tasks_render_loop;
-                            }
-                            TasksState::Main => 
-                            {
-                                handle_keys_main(app_state, key, data, &mut adding_state);
-                            }
-                            TasksState::Adding => 
-                            {
-                                handle_keys_adding(app_state, key, data, &mut adding_state);
-                            }
-                            TasksState::Editing => 
-                            {
-                                handle_keys_editing(app_state, key, data, &mut adding_state, data.tasks.as_ref().unwrap().list_state.selected().unwrap());
-                            }
-                        }
-                    }
+                    app_state.clear_error();
                 }
+                _ => {}
+            }
+            continue 'tasks_render_loop;
+        }
+
+        match task_state
+        {
+            TasksState::Main =>
+            {
+                handle_keys_main(app_state, key, data, &mut adding_state);
+            }
+            TasksState::Adding =>
+            {
+                handle_keys_adding(app_state, key, data, &mut adding_state);
+            }
+            TasksState::Editing =>
+            {
+                let selected_index = data.tasks.as_ref().unwrap().list_state.selected().unwrap();
+                handle_keys_editing(app_state, key, data, &mut adding_state, selected_index);
+            }
+            TasksState::Exit =>
+            {
+                break 'tasks_render_loop;
             }
         }
     }
